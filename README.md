@@ -1,2 +1,1 @@
-# Schnorr
 # twisted-elgamal
