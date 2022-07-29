@@ -13,6 +13,7 @@ rand = "0.7"
 web3 = "0.18.0"
 subtle = "2"
 serde = { version = "1.0", features = ["derive"] }
+lazy_static = "1.4"
 
 [dependencies.bulletproofs]
 git = "https://github.com/dalek-cryptography/bulletproofs"

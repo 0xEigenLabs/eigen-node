@@ -13,6 +13,7 @@ use crate::signed_integer::SignedInteger;
 use bulletproofs::r1cs::{Prover, R1CSProof, Variable, Verifier};
 use bulletproofs::{BulletproofGens, PedersenGens};
 
+use super::baby_step_giant_step::bsgs;
 use rand::CryptoRng;
 use rand::RngCore;
 
@@ -186,19 +187,12 @@ impl TwistedElGamalPP {
         // range proof check
         self.verify_range_proof(&ct.RP, ct.comm)?;
 
-        // GTBT: TODO.to_string()
-        // BF for test
-        for i in 1..=1280 {
-            let i1 = Scalar::from(i) * self.H;
-            if mH.compress() == i1.compress() {
-                println!("result value {}", i);
-                return Ok(i);
-            }
+        match bsgs(&mH) {
+            Some(i) => Ok(i as u64),
+            _ => Err(R1CSError::GadgetError {
+                description: "Value out of 1-128".to_string(),
+            }),
         }
-        println!("11111");
-        Err(R1CSError::GadgetError {
-            description: "Value out of 1-128".to_string(),
-        })
     }
 }
 
@@ -210,7 +204,7 @@ pub struct TwistedElGamalCT {
 }
 
 #[test]
-fn test_signature() {
+fn test_twisted_elgamal() {
     let mut transript = Transcript::new(b"TwistedElGamalTest");
 
     let mut rng = transript
