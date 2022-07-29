@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 // https://eprint.iacr.org/2019/319
 use bulletproofs::r1cs::{ConstraintSystem, LinearCombination, R1CSError};
 use core::iter;
@@ -5,12 +6,12 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::{IsIdentity, VartimeMultiscalarMul};
+use curve25519_dalek::traits::VartimeMultiscalarMul;
 use merlin::Transcript;
 
 use crate::bit_range::BitRange;
 use crate::signed_integer::SignedInteger;
-use bulletproofs::r1cs::{Prover, R1CSProof, Variable, Verifier};
+use bulletproofs::r1cs::{Prover, R1CSProof, Verifier};
 use bulletproofs::{BulletproofGens, PedersenGens};
 
 use super::baby_step_giant_step::bsgs;

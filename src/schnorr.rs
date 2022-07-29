@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use core::iter;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::CompressedRistretto;
@@ -108,7 +109,6 @@ impl Signature {
 
 #[test]
 fn test_signature() {
-    let label = b"abc";
     let mut t = Transcript::new(b"key");
     let witness1 = b"witness data 1";
 

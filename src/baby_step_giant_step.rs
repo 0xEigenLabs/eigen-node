@@ -1,10 +1,10 @@
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+#![allow(non_snake_case)]
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use std::collections::HashMap;
 
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 lazy_static! {
     static ref POINT_TO_INDEX_MAP: RwLock<HashMap<CompressedRistretto, u32>> =
