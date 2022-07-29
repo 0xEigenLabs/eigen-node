@@ -174,7 +174,7 @@ impl TwistedElGamalPP {
         Ok(verifier.verify(&proof, &self.pc_gens, &self.bp_gens)?)
     }
 
-    pub fn decrypt(&self, ct: &TwistedElGamalCT, sk: Scalar) -> Result<u64, R1CSError> {
+    pub fn decrypt(&self, ct: &TwistedElGamalCT, sk: Scalar) -> Result<u32, R1CSError> {
         // rG + mH = Y,  X = rxG
         // mH = Y - x^-1 * X
         let sk_inv = sk.invert(); // sk should not be zero
@@ -187,10 +187,10 @@ impl TwistedElGamalPP {
         // range proof check
         self.verify_range_proof(&ct.RP, ct.comm)?;
 
-        match bsgs(&mH) {
-            Some(i) => Ok(i as u64),
+        match bsgs(&mH, &self.H) {
+            Some(i) => Ok(i),
             _ => Err(R1CSError::GadgetError {
-                description: "Value out of 1-128".to_string(),
+                description: "Value out of 1-2^31".to_string(),
             }),
         }
     }

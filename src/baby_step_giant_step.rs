@@ -11,9 +11,8 @@ lazy_static! {
         RwLock::new(HashMap::new());
 }
 
-// It uses a hashtable to store the baby steps,
-// Assume P = k * G, k \in [0, 2^31), solve x.
-pub fn bsgs(P: &RistrettoPoint) -> Option<u32> {
+// Assume P = k * G, k \in [0, 2^31), solve k.
+pub fn bsgs(P: &RistrettoPoint, G: &RistrettoPoint) -> Option<u32> {
     // only support x \in [0, 2^31)
     let MAX = 2147483647u32;
     let m = 65536u32;
@@ -21,22 +20,16 @@ pub fn bsgs(P: &RistrettoPoint) -> Option<u32> {
     // Compute a table of [G,2.G,3.G,..,b.G,...,m.G]
     if POINT_TO_INDEX_MAP.read().unwrap().len() == 0 {
         for j in 1..=m {
-            println!(
-                "{:?}, {:?}, {}",
-                Scalar::from(j) * RISTRETTO_BASEPOINT_POINT,
-                P,
-                j
-            );
             POINT_TO_INDEX_MAP
                 .write()
                 .unwrap()
-                .insert((Scalar::from(j) * RISTRETTO_BASEPOINT_POINT).compress(), j);
+                .insert((Scalar::from(j) * G).compress(), j);
         }
     }
 
     let mut step = 0u32;
 
-    let mut S = P - RISTRETTO_BASEPOINT_POINT + RISTRETTO_BASEPOINT_POINT;
+    let mut S = P - G + G;
 
     while step < MAX {
         if POINT_TO_INDEX_MAP
@@ -52,13 +45,14 @@ pub fn bsgs(P: &RistrettoPoint) -> Option<u32> {
                 .clone();
             return Some(b + step);
         } else {
-            S = S - Scalar::from(m) * RISTRETTO_BASEPOINT_POINT;
+            S = S - Scalar::from(m) * G;
             step += m;
         }
     }
     None
 }
 
+/*
 #[test]
 fn test_bsgs() {
     let p: Vec<u32> = vec![
@@ -78,9 +72,11 @@ fn test_bsgs() {
         .into_iter()
         .map(|x| {
             let P = Scalar::from(x) * RISTRETTO_BASEPOINT_POINT;
-            let r = bsgs(&P).unwrap();
+            let r = bsgs(&P, &RISTRETTO_BASEPOINT_POINT).unwrap();
+            println!("{} == {}", r, x);
             r == x
         })
         .collect();
     assert!(r.iter().all(|&x| x == true));
 }
+*/
