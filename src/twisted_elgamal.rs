@@ -2,7 +2,6 @@
 // https://eprint.iacr.org/2019/319
 use bulletproofs::r1cs::{ConstraintSystem, LinearCombination, R1CSError};
 use core::iter;
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
@@ -63,6 +62,7 @@ pub struct TwistedElGamalPP {
 }
 
 impl TwistedElGamalPP {
+    // setup
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> TwistedElGamalPP {
         let G = RistrettoPoint::random(rng);
         let H = RistrettoPoint::random(rng);
@@ -77,8 +77,10 @@ impl TwistedElGamalPP {
         }
     }
 
-    fn from_secret_decompressed(privkey: &Scalar) -> CompressedRistretto {
-        (privkey * RISTRETTO_BASEPOINT_POINT).compress()
+    pub fn keygen<R: RngCore + CryptoRng>(&self, rng: &mut R) -> (Scalar, RistrettoPoint) {
+        let sk = Scalar::random(rng);
+        let pk = sk * self.G;
+        (sk, pk)
     }
 
     pub fn encrypt(
@@ -195,6 +197,8 @@ impl TwistedElGamalPP {
             }),
         }
     }
+
+    pub fn build_tx() {}
 }
 
 pub struct TwistedElGamalCT {
@@ -212,10 +216,11 @@ fn test_twisted_elgamal() {
         .build_rng()
         .rekey_with_witness_bytes(b"x", b"witness")
         .finalize(&mut rand::thread_rng());
-    let sk = Scalar::random(&mut rng);
     let mut te = TwistedElGamalPP::new(&mut rng);
-    let pk = (sk * te.G).compress();
-    let ct = te.encrypt(b"te", SignedInteger::from(10), &pk).unwrap();
+    let (sk, pk) = te.keygen(&mut rng);
+    let ct = te
+        .encrypt(b"te", SignedInteger::from(10), &pk.compress())
+        .unwrap();
 
     assert!(te.decrypt(&ct, sk).is_ok());
 }
