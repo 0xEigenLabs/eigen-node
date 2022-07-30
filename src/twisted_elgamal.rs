@@ -1,21 +1,22 @@
-#![allow(non_snake_case)]
 // https://eprint.iacr.org/2019/319
-use bulletproofs::r1cs::{ConstraintSystem, LinearCombination, R1CSError};
+#![allow(non_snake_case)]
+use crate::errors::EigenCTError;
+use crate::errors::Result;
 use core::iter;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::VartimeMultiscalarMul;
 use merlin::Transcript;
+use sha2::Sha512;
 
 use crate::bit_range::BitRange;
 use crate::signed_integer::SignedInteger;
-use bulletproofs::r1cs::{Prover, R1CSProof, Verifier};
-use bulletproofs::{BulletproofGens, PedersenGens};
 
 use super::baby_step_giant_step::bsgs;
 use rand::CryptoRng;
 use rand::RngCore;
+
 
 trait TranscriptProtocol {
     fn domain_sep(&mut self);
@@ -57,24 +58,14 @@ impl TranscriptProtocol for Transcript {
 pub struct TwistedElGamalPP {
     pub G: RistrettoPoint,
     pub H: RistrettoPoint,
-    pub pc_gens: PedersenGens,
-    pub bp_gens: BulletproofGens,
 }
 
 impl TwistedElGamalPP {
     // setup
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> TwistedElGamalPP {
         let G = RistrettoPoint::random(rng);
-        let H = RistrettoPoint::random(rng);
-        assert!(G.compress() != H.compress());
-        let pc_gens = PedersenGens::default();
-        let bp_gens = BulletproofGens::new(64, 1);
-        TwistedElGamalPP {
-            G,
-            H,
-            pc_gens,
-            bp_gens,
-        }
+        let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
+        TwistedElGamalPP { G, H }
     }
 
     pub fn keygen<R: RngCore + CryptoRng>(&self, rng: &mut R) -> (Scalar, RistrettoPoint) {
@@ -88,7 +79,7 @@ impl TwistedElGamalPP {
         label: &'static [u8],
         value: SignedInteger,
         pk: &CompressedRistretto,
-    ) -> Result<TwistedElGamalCT, R1CSError> {
+    ) -> Result<TwistedElGamalCT> {
         let mut transript = Transcript::new(b"TwistedElGamal");
         transript.domain_sep();
         transript.append_message(label, &pk.to_bytes());
@@ -109,76 +100,11 @@ impl TwistedElGamalPP {
         )
         .unwrap();
 
-        let rp = self.prove_range_proof(value, &mut rng)?;
-
         // generate range proof
-        Ok(TwistedElGamalCT {
-            X: cx,
-            Y: cy,
-            RP: rp.0,
-            comm: rp.1,
-        })
+        Ok(TwistedElGamalCT { X: cx, Y: cy })
     }
 
-    fn range_proof<CS: ConstraintSystem>(
-        cs: &mut CS,
-        mut v: LinearCombination,
-        v_assignment: Option<SignedInteger>,
-        n: BitRange,
-    ) -> Result<(), R1CSError> {
-        let mut exp_2 = Scalar::one();
-        let n_usize: usize = n.into();
-
-        for i in 0..n_usize {
-            let (a, b, o) = cs.allocate_multiplier(v_assignment.and_then(|q| {
-                q.to_u64().map(|p| {
-                    let bit: u64 = (p >> i) & 1;
-                    ((1 - bit).into(), bit.into())
-                })
-            }))?;
-            cs.constrain(o.into());
-            cs.constrain(a + (b - 1u64));
-
-            v = v - b * exp_2;
-            exp_2 = exp_2 + exp_2;
-        }
-        cs.constrain(v);
-        Ok(())
-    }
-
-    fn prove_range_proof<R: RngCore + CryptoRng>(
-        &self,
-        v: SignedInteger,
-        rng: &mut R,
-    ) -> Result<(R1CSProof, CompressedRistretto), R1CSError> {
-        let bit_width = BitRange::new(32).ok_or(R1CSError::GadgetError {
-            description: "Invalid bitrange; Bitrange must be between 0 and 64".to_string(),
-        })?;
-        let mut prover_transcript = Transcript::new(b"range_proof");
-        let mut prover = Prover::new(&self.pc_gens, &mut prover_transcript);
-        let (comm, var) = prover.commit(v.into(), Scalar::random(rng));
-        Self::range_proof(&mut prover, var.into(), Some(v), bit_width)?;
-        let proof = prover.prove(&self.bp_gens)?;
-        Ok((proof, comm))
-    }
-
-    fn verify_range_proof(
-        &self,
-        proof: &R1CSProof,
-        comm: CompressedRistretto,
-    ) -> Result<(), R1CSError> {
-        let bit_width = BitRange::new(32).ok_or(R1CSError::GadgetError {
-            description: "Invalid bitrange; Bitrange must be between 0 and 64".to_string(),
-        })?;
-        let mut verifier_transcript = Transcript::new(b"range_proof");
-        let mut verifier = Verifier::new(&mut verifier_transcript);
-        let var = verifier.commit(comm);
-        Self::range_proof(&mut verifier, var.into(), None, bit_width)?;
-        Ok(verifier.verify(&proof, &self.pc_gens, &self.bp_gens)?)
-    }
-
-    pub fn decrypt(&self,label: &'static [u8], ct: &TwistedElGamalCT, sk: Scalar) -> Result<u32, R1CSError> {
-
+    pub fn decrypt(&self, label: &'static [u8], ct: &TwistedElGamalCT, sk: Scalar) -> Result<u32> {
         let pk = sk * self.G;
         let mut transript = Transcript::new(b"TwistedElGamal");
         transript.domain_sep();
@@ -193,13 +119,11 @@ impl TwistedElGamalPP {
         )
         .unwrap();
 
-        // range proof check
-        self.verify_range_proof(&ct.RP, ct.comm)?;
-
         match bsgs(&mH, &self.H) {
             Some(i) => Ok(i),
-            _ => Err(R1CSError::GadgetError {
-                description: "Value out of 1-2^31".to_string(),
+            _ => Err(EigenCTError::OutOfRangeError {
+                expected: "Value out of 1-2^31".to_string(),
+                found: format!("unknown"),
             }),
         }
     }
@@ -208,8 +132,6 @@ impl TwistedElGamalPP {
 pub struct TwistedElGamalCT {
     pub X: RistrettoPoint, // pk^r, pk=g^x
     pub Y: RistrettoPoint, // g^m h^r
-    pub RP: R1CSProof,
-    pub comm: CompressedRistretto,
 }
 
 #[test]
