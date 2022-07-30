@@ -217,7 +217,7 @@ fn test_twisted_elgamal() {
     let mut te = TwistedElGamalPP::new(&mut rng);
     let (sk, pk) = te.keygen(&mut rng);
     let ct = te
-        .encrypt(b"te", SignedInteger::from(10), &pk.compress())
+        .encrypt(b"te", SignedInteger::from(10i32), &pk.compress())
         .unwrap();
 
     assert!(te.decrypt(&ct, sk).is_ok());

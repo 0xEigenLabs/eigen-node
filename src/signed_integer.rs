@@ -32,6 +32,12 @@ impl From<u64> for SignedInteger {
     }
 }
 
+impl From<i32> for SignedInteger {
+    fn from(u: i32) -> SignedInteger {
+        SignedInteger(u as i128)
+    }
+}
+
 impl Into<Scalar> for SignedInteger {
     fn into(self) -> Scalar {
         if self.0 < 0 {
