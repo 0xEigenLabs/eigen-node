@@ -197,8 +197,6 @@ impl TwistedElGamalPP {
             }),
         }
     }
-
-    pub fn build_tx() {}
 }
 
 pub struct TwistedElGamalCT {
