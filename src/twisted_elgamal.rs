@@ -177,7 +177,13 @@ impl TwistedElGamalPP {
         Ok(verifier.verify(&proof, &self.pc_gens, &self.bp_gens)?)
     }
 
-    pub fn decrypt(&self, ct: &TwistedElGamalCT, sk: Scalar) -> Result<u32, R1CSError> {
+    pub fn decrypt(&self,label: &'static [u8], ct: &TwistedElGamalCT, sk: Scalar) -> Result<u32, R1CSError> {
+
+        let pk = sk * self.G;
+        let mut transript = Transcript::new(b"TwistedElGamal");
+        transript.domain_sep();
+        transript.append_message(label, &pk.compress().to_bytes());
+
         // rG + mH = Y,  X = rxG
         // mH = Y - x^-1 * X
         let sk_inv = sk.invert(); // sk should not be zero
@@ -216,9 +222,10 @@ fn test_twisted_elgamal() {
         .finalize(&mut rand::thread_rng());
     let mut te = TwistedElGamalPP::new(&mut rng);
     let (sk, pk) = te.keygen(&mut rng);
+    let label = b"te";
     let ct = te
-        .encrypt(b"te", SignedInteger::from(10i32), &pk.compress())
+        .encrypt(label, SignedInteger::from(10i32), &pk.compress())
         .unwrap();
 
-    assert!(te.decrypt(&ct, sk).is_ok());
+    assert!(te.decrypt(label, &ct, sk).is_ok());
 }
