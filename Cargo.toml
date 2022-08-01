@@ -1,5 +1,5 @@
 [package]
-name = "twisted_elgamal"
+name = "ct"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,16 +12,17 @@ rand = "0.7"
 subtle = "2"
 serde = { version = "1.0", features = ["derive"] }
 lazy_static = "1.4"
-sha2 = "0.9"
 thiserror="1.0"
+poseidon-rs = "0.0.8"
+ff = {package="ff_ce" , version="0.11", features = ["derive"]}
+num-bigint = {version = "0.2.2", features = ["rand"]}
+num-traits = "0.2.8"
 
 [dependencies.bulletproofs]
 git = "https://github.com/dalek-cryptography/bulletproofs"
 branch = "develop"
 features = ["yoloproofs"]
 optional = true
-
-poseidon-rs = { git = "https://github.com/arnaucube/poseidon-rs", version = "0.0.8", optional = true }
 
 [features]
 default = []
