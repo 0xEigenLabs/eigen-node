@@ -17,6 +17,8 @@ use super::baby_step_giant_step::bsgs;
 use rand::CryptoRng;
 use rand::RngCore;
 
+pub const MAX_BITS: usize = 20;
+
 trait TranscriptProtocol {
     fn domain_sep(&mut self);
     fn commit_scalar(&mut self, label: &'static [u8], scalar: &Scalar);
@@ -101,7 +103,7 @@ impl TwistedElGamalPP {
         .unwrap();
 
         // generate range proof
-        let n = 32;
+        let n = MAX_BITS;
         let (rp, comm, blinding) =
             RangeProof::create(n, value.to_u64().unwrap(), &self.G, &self.H, &mut rng).unwrap();
         let C = rp.verify(n, &self.G, &self.H).unwrap();
@@ -131,7 +133,7 @@ impl TwistedElGamalPP {
         .unwrap();
 
         //range proof verification
-        ct.RP.verify(32, &self.G, &self.H).ok_or_else(|| {
+        ct.RP.verify(MAX_BITS, &self.G, &self.H).ok_or_else(|| {
             EigenCTError::InvalidRangeProof("should be between 1-2^32".to_string())
         })?;
 
