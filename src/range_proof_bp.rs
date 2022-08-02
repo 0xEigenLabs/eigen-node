@@ -69,11 +69,7 @@ impl RangeProof {
         Ok((proof, comm))
     }
 
-    fn verify(
-        &self,
-        proof: &R1CSProof,
-        comm: CompressedRistretto,
-    ) -> Result<(), R1CSError> {
+    fn verify(&self, proof: &R1CSProof, comm: CompressedRistretto) -> Result<(), R1CSError> {
         let bit_width = BitRange::new(32).ok_or(R1CSError::GadgetError {
             description: "Invalid bitrange; Bitrange must be between 0 and 64".to_string(),
         })?;

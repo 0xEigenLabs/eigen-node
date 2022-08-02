@@ -16,3 +16,5 @@ pub mod range_proof_bm;
 
 #[macro_use]
 extern crate lazy_static;
+
+mod hash;

@@ -20,6 +20,14 @@ impl SignedInteger {
         }
     }
 
+    pub fn to_u32(&self) -> Option<u32> {
+        if self.0 < 0 {
+            None
+        } else {
+            Some(self.0 as u32)
+        }
+    }
+
     /// Converts the integer to Scalar.
     pub fn to_scalar(self) -> Scalar {
         self.into()
@@ -32,8 +40,8 @@ impl From<u64> for SignedInteger {
     }
 }
 
-impl From<i32> for SignedInteger {
-    fn from(u: i32) -> SignedInteger {
+impl From<u32> for SignedInteger {
+    fn from(u: u32) -> SignedInteger {
         SignedInteger(u as i128)
     }
 }
