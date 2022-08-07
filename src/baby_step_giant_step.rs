@@ -1,18 +1,19 @@
 #![allow(non_snake_case)]
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
 use std::collections::HashMap;
 
+use babyjubjub_rs::Point;
+
+use num_bigint::BigInt;
+use num_bigint::Sign;
+use num_bigint::ToBigInt;
 use std::sync::RwLock;
 
 lazy_static! {
-    static ref POINT_TO_INDEX_MAP: RwLock<HashMap<CompressedRistretto, u32>> =
-        RwLock::new(HashMap::new());
+    static ref POINT_TO_INDEX_MAP: RwLock<HashMap<[u8; 32], u32>> = RwLock::new(HashMap::new());
 }
 
 // Assume P = k * G, k \in [0, 2^31), solve k.
-pub fn bsgs(P: &RistrettoPoint, G: &RistrettoPoint) -> Option<u32> {
+pub fn bsgs(P: &Point, G: &Point) -> Option<u32> {
     // only support x \in [0, 2^31)
     let MAX = 2147483647u32;
     let m = 65536u32;
@@ -23,13 +24,13 @@ pub fn bsgs(P: &RistrettoPoint, G: &RistrettoPoint) -> Option<u32> {
             POINT_TO_INDEX_MAP
                 .write()
                 .unwrap()
-                .insert((Scalar::from(j) * G).compress(), j);
+                .insert(G.mul_scalar(&BigInt::from(j)).compress(), j);
         }
     }
 
     let mut step = 0u32;
 
-    let mut S = P - G + G;
+    let mut S = P.clone();
 
     while step < MAX {
         if POINT_TO_INDEX_MAP
@@ -45,7 +46,10 @@ pub fn bsgs(P: &RistrettoPoint, G: &RistrettoPoint) -> Option<u32> {
                 .clone();
             return Some(b + step);
         } else {
-            S = S - Scalar::from(m) * G;
+            S = S
+                .projective()
+                .add(&G.mul_scalar(&-BigInt::from(m)).projective())
+                .affine();
             step += m;
         }
     }

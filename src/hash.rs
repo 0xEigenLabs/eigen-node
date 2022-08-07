@@ -1,14 +1,13 @@
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
 use ff::*;
-use num_bigint::BigUint;
-use num_traits::Num;
 use poseidon_rs::{Fr, Poseidon};
+
+use babyjubjub_rs::PrivateKey;
+use babyjubjub_rs::{decompress_point, Point};
 
 use crate::errors::{EigenCTError, Result};
 
-use std::convert::TryInto;
+use crate::utils::*;
+use num_bigint::{BigInt, Sign};
 
 pub struct Hasher {
     h: Poseidon,
@@ -28,44 +27,39 @@ impl Hasher {
     }
 
     fn multi_round_hash(&self) -> Result<Fr> {
-        let mut compressed_ristretto_to_fr: Vec<Fr> = self
+        let mut point_to_fr: Vec<Fr> = self
             .e
             .iter()
             .map(|point| {
-                let b = BigUint::from_bytes_be(&point[..]);
-                Fr::from_str(&b.to_str_radix(10)).unwrap()
+                let n = BigInt::from_bytes_le(Sign::Plus, point);
+                bigint_to_fr(&n)
             })
             .collect();
 
         let mut digest: Fr;
         let round_size: usize = 5;
-        if compressed_ristretto_to_fr.len() <= round_size {
+        if point_to_fr.len() <= round_size {
             digest = self
                 .h
-                .hash(compressed_ristretto_to_fr)
+                .hash(point_to_fr)
                 .map_err(|e| EigenCTError::PoseidonHashError(e))?;
         } else {
-            let round: usize = 1 + compressed_ristretto_to_fr.len() / round_size;
+            let round: usize = 1 + point_to_fr.len() / round_size;
             digest = self
                 .h
-                .hash(
-                    compressed_ristretto_to_fr
-                        .get(0..round_size)
-                        .unwrap()
-                        .to_vec(),
-                )
+                .hash(point_to_fr.get(0..round_size).unwrap().to_vec())
                 .map_err(|e| EigenCTError::PoseidonHashError(e))?;
             for i in 1..round {
                 let begin = i * (round_size - 1) + 1;
                 let mut end = begin + round_size;
-                if begin >= compressed_ristretto_to_fr.len() {
+                if begin >= point_to_fr.len() {
                     break;
                 }
-                if end > compressed_ristretto_to_fr.len() {
-                    end = compressed_ristretto_to_fr.len();
+                if end > point_to_fr.len() {
+                    end = point_to_fr.len();
                 }
                 let mut buffer = vec![digest];
-                buffer.extend(compressed_ristretto_to_fr.get(begin..end).unwrap());
+                buffer.extend(point_to_fr.get(begin..end).unwrap());
                 digest = self
                     .h
                     .hash(buffer)
@@ -76,30 +70,20 @@ impl Hasher {
         Ok(digest)
     }
 
-    pub fn update(&mut self, point: &RistrettoPoint) -> &mut Self {
-        self.e.push(point.compress().as_bytes().to_vec());
+    pub fn update(&mut self, point: &Point) -> &mut Self {
+        self.e.push(point.compress().to_vec());
         self
     }
 
-    pub fn to_point(&self) -> Result<RistrettoPoint> {
+    pub fn to_point(&self) -> Result<Point> {
         let digest = self.multi_round_hash()?;
-        let digest_str = digest.to_string();
-        let substr = &digest_str[5..(digest_str.len() - 1)];
-        let mut first_part = substr.as_bytes();
-        let mut v = [0u8; 64];
-        v.copy_from_slice(&first_part);
-        Ok(RistrettoPoint::from_uniform_bytes(&v))
+        let n = fr_to_bigint(&digest);
+        Ok(bigint_to_point(&n, false))
     }
 
-    pub fn to_scalar(&mut self) -> Result<Scalar> {
-        let digest = self.multi_round_hash()?;
-        let digest_str = digest.to_string();
-        let substr = &digest_str[5..(digest_str.len() - 1)];
-        let digest_to_str = substr.as_bytes();
-
-        let mut v = [0u8; 64];
-        v.copy_from_slice(digest_to_str);
-        Ok(Scalar::from_bytes_mod_order_wide(&v))
+    pub fn to_scalar(&mut self) -> Result<BigInt> {
+        let h = self.multi_round_hash()?;
+        Ok(fr_to_bigint(&h))
     }
 }
 
