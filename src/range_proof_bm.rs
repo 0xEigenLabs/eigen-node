@@ -2,30 +2,34 @@
 // copy and modify from https://github.com/dalek-cryptography/dalek-rangeproofs/blob/develop/src/lib.rs
 // It replaces the hash function by ZK friendly hash, Poseidon Hash
 #![allow(non_snake_case)]
-use rand::CryptoRng;
-use rand::RngCore;
-use serde::{Deserialize, Serialize};
 use subtle::ConditionallySelectable;
-
+use num_bigint::RandBigInt;
+use num_bigint::ToBigInt;
 use crate::hash::Hasher;
 use core::iter;
-use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::traits::Identity;
-use curve25519_dalek::traits::VartimeMultiscalarMul;
+use crate::utils::*;
+use rand_core::{CryptoRng, RngCore};
 
-pub fn k_2_fold_scalar_mult(s: &[Scalar], p: &[RistrettoPoint]) -> RistrettoPoint {
+use poseidon_rs::Fr;
+use ff::*;
+
+use num_bigint::BigInt;
+use num_traits::{Zero, One};
+use babyjubjub_rs::{Point, utils as bu, new_key, Q};
+
+#[inline(always)]
+pub fn k_2_fold_scalar_mult(s: &[&BigInt], p: &[&Point]) -> Point {
     assert_eq!(s.len(), 2);
-    RistrettoPoint::optional_multiscalar_mul(
-        iter::once(s[0]).chain(iter::once(s[1])),
-        iter::once(Some(p[0])).chain(iter::once(Some(p[1]))),
-    )
-    .unwrap()
+    let mut lh = p[0].mul_scalar(&modulus(s[0]));
+    let mut rh = p[1].mul_scalar(&modulus(s[1]));
+    let mult_sum = lh.projective().add(&rh.projective());
+    mult_sum.affine()
 }
 
 /// ab+c (mod l)
-fn multiply_add(a: &Scalar, b: &Scalar, c: &Scalar) -> Scalar {
-    (a * b) + c
+#[inline(always)]
+fn multiply_add(a: &BigInt, b: &BigInt, c: &BigInt) -> BigInt {
+    modulus(&((a * b) + c))
 }
 
 #[inline(always)]
@@ -53,12 +57,12 @@ pub fn bytes_equal_ct(a: u8, b: u8) -> u8 {
 ///
 /// The size of the proof and the cost of verification are
 /// proportional to `n`.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct RangeProof {
-    e_0: Scalar,
-    C: Vec<RistrettoPoint>,
-    s_1: Vec<Scalar>,
-    s_2: Vec<Scalar>,
+    e_0: BigInt,
+    C: Vec<Point>,
+    s_1: Vec<BigInt>,
+    s_2: Vec<BigInt>,
 }
 
 /// The maximum allowed bound for the rangeproof.  Currently this is
@@ -72,9 +76,9 @@ impl RangeProof {
     pub fn verify(
         &self,
         n: usize,
-        G: &RistrettoPoint,
-        H: &RistrettoPoint,
-    ) -> Option<RistrettoPoint> {
+        G: &Point,
+        H: &Point,
+    ) -> Option<Point> {
         // Calling verify with n out of bounds is a programming error.
         if n > RANGEPROOF_MAX_N {
             panic!(
@@ -95,29 +99,33 @@ impl RangeProof {
 
         //let mut e_0_hash = Sha512::default();
         let mut e_0_hash = Hasher::new();
-        let mut C = RistrettoPoint::identity();
+        let mut C = Point{x: Fr::zero(), y: Fr::one()};
         // mi_H = m^i * H = 3^i * H in the loop below
-        let mut mi_H = *H;
+        let mut mi_H = H.clone();
 
         for i in 0..n {
-            let mi2_H = mi_H + mi_H;
+            let mi2_H = mi_H.projective().add(&mi_H.projective()).affine();
 
-            let Ci_minus_miH = self.C[i] - mi_H;
-            let P = k_2_fold_scalar_mult(&[self.s_1[i], -&self.e_0], &[*G, Ci_minus_miH]);
+            let Ci_minus_miH = self.C[i].projective()
+                .add(&mi_H.mul_scalar(&neg(&BigInt::one())).projective())
+                .affine();
+            let P = k_2_fold_scalar_mult(&[&self.s_1[i], &neg(&self.e_0)], &[G, &Ci_minus_miH]);
             //let ei_1 = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
             let ei_1 = Hasher::new().update(&P).to_scalar().unwrap();
 
-            let Ci_minus_2miH = self.C[i] - mi2_H;
-            let P = k_2_fold_scalar_mult(&[self.s_2[i], -&ei_1], &[*G, Ci_minus_2miH]);
+            let Ci_minus_2miH = self.C[i].projective()
+                .add(&mi2_H.mul_scalar(&neg(&BigInt::one())).projective())
+                .affine();
+            let P = k_2_fold_scalar_mult(&[&self.s_2[i], &neg(&ei_1)], &[G, &Ci_minus_2miH]);
             //let ei_2 = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
             let ei_2 = Hasher::new().update(&P).to_scalar().unwrap();
 
-            let Ri = self.C[i] * ei_2;
+            let Ri = self.C[i].mul_scalar(&ei_2);
             e_0_hash.update(&Ri);
-            C = C + self.C[i];
+            C = C.projective().add(&self.C[i].projective()).affine();
 
             // Set mi_H <-- 3*m_iH, so that mi_H is always 3^i * H in the loop
-            mi_H = mi_H + mi2_H;
+            mi_H = mi_H.projective().add(&mi2_H.projective()).affine();
         }
 
         let e_0_hat = e_0_hash.to_scalar().unwrap();
@@ -150,10 +158,10 @@ impl RangeProof {
     pub fn create_vartime<T: RngCore + CryptoRng>(
         n: usize,
         value: u64,
-        G: &RistrettoPoint,
-        H: &RistrettoPoint,
+        G: &Point,
+        H: &Point,
         mut rng: &mut T,
-    ) -> Option<(RangeProof, RistrettoPoint, Scalar)> {
+    ) -> Option<(RangeProof, Point, BigInt)> {
         // Calling verify with n out of bounds is a programming error.
         if n > RANGEPROOF_MAX_N {
             panic!(
@@ -170,55 +178,60 @@ impl RangeProof {
             }
         }
 
-        let mut R = vec![RistrettoPoint::identity(); n];
-        let mut C = vec![RistrettoPoint::identity(); n];
-        let mut k = vec![Scalar::zero(); n];
-        let mut r = vec![Scalar::zero(); n];
-        let mut s_1 = vec![Scalar::zero(); n];
-        let mut s_2 = vec![Scalar::zero(); n];
-        let mut e_1 = vec![Scalar::zero(); n];
-        let mut e_2 = vec![Scalar::zero(); n];
+        let identity = Point{x: Fr::zero(), y: Fr::one()};
+        let mut R = vec![identity.clone(); n];
+        let mut C = vec![identity.clone(); n];
+        let mut k = vec![BigInt::zero(); n];
+        let mut r = vec![BigInt::zero(); n];
+        let mut s_1 = vec![BigInt::zero(); n];
+        let mut s_2 = vec![BigInt::zero(); n];
+        let mut e_1 = vec![BigInt::zero(); n];
+        let mut e_2 = vec![BigInt::zero(); n];
 
-        let mut mi_H = *H;
+        let mut mi_H = H.clone();
         for i in 0..n {
-            let mi2_H = mi_H + mi_H;
-            k[i] = Scalar::random(&mut rng);
+            let mi2_H = mi_H.projective().add(&mi_H.projective()).affine();
+            k[i] = random(&mut rng);
 
             if v[i] == 0 {
-                R[i] = G * k[i];
+                R[i] = G.mul_scalar(&k[i]);
             } else if v[i] == 1 {
                 // Commitment to i-th digit is r^i G + 1 * m^i H
-                r[i] = Scalar::random(&mut rng);
-                C[i] = (G * r[i]) + mi_H;
+                r[i] = random(&mut rng);
+                C[i] = (G.mul_scalar(&r[i])).projective()
+                    .add(&mi_H.projective()).affine();
                 // Begin at index 1 in the ring, choosing random e_1
-                let P = G * k[i];
+                let P = G.mul_scalar(&k[i]);
                 //e_1[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
                 e_1[i] = Hasher::new().update(&P).to_scalar().unwrap();
                 // Choose random scalar for s_2
-                s_2[i] = Scalar::random(&mut rng);
+                s_2[i] = random(&mut rng);
                 // Compute e_2 = Hash(s_2^i G - e_1^i (C^i - 2m^i H) )
-                let Ci_minus_mi2H = C[i] - mi2_H;
-                let P = k_2_fold_scalar_mult(&[s_2[i], -&e_1[i]], &[*G, Ci_minus_mi2H]);
+                let Ci_minus_mi2H = C[i].projective()
+                    .add(&mi2_H.mul_scalar(&neg(&BigInt::one())).projective())
+                    .affine();
+                let P = k_2_fold_scalar_mult(&[&s_2[i], &neg(&e_1[i])], &[G, &Ci_minus_mi2H]);
                 //e_2[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
                 e_2[i] = Hasher::new().update(&P).to_scalar().unwrap();
 
-                R[i] = C[i] * e_2[i];
+                R[i] = C[i].mul_scalar(&e_2[i]);
             } else if v[i] == 2 {
                 // Commitment to i-th digit is r^i G + 2 * m^i H
-                r[i] = Scalar::random(&mut rng);
-                C[i] = (G * r[i]) + mi2_H;
+                r[i] = random(&mut rng);
+                C[i] = (G.mul_scalar(&r[i])).projective().add(&mi2_H.projective()).affine();
+
                 // Begin at index 2 in the ring, choosing random e_2
-                let P = G * k[i];
+                let P = G.mul_scalar(&k[i]);
                 //e_2[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
                 e_2[i] = Hasher::new().update(&P).to_scalar().unwrap();
 
-                R[i] = C[i] * e_2[i];
+                R[i] = C[i].mul_scalar(&e_2[i]);
             } else {
                 panic!("Invalid digit {}", v[i]);
             }
 
             // Set mi_H <- 3 * mi_H so that mi_H = m^i H in the loop
-            mi_H = mi2_H + mi_H;
+            mi_H = mi2_H.projective().add(&mi_H.projective()).affine();
         }
 
         // Compute e_0 = Hash( R^0 || ... || R^{n-1} )
@@ -228,48 +241,52 @@ impl RangeProof {
         }
         let e_0 = e_0_hash.to_scalar().unwrap();
 
-        let mut mi_H = *H;
+        let mut mi_H = H.clone();
         for i in 0..n {
-            let mi2_H = mi_H + mi_H;
+            let mi2_H = mi_H.projective().add(&mi_H.projective()).affine();
             if v[i] == 0 {
-                let k_1 = Scalar::random(&mut rng);
+                let k_1 = random(&mut rng);
                 // P = k_1 * G + e_0 * mi_H
-                let P = k_2_fold_scalar_mult(&[k_1, e_0], &[*G, mi_H]);
+                let P = k_2_fold_scalar_mult(&[&k_1, &e_0], &[G, &mi_H]);
                 //e_1[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
                 e_1[i] = Hasher::new().update(&P).to_scalar().unwrap();
 
-                let k_2 = Scalar::random(&mut rng);
-                let P = k_2_fold_scalar_mult(&[k_2, e_1[i]], &[*G, mi2_H]);
+                let k_2 = random(&mut rng);
+                let P = k_2_fold_scalar_mult(&[&k_2, &e_1[i]], &[G, &mi2_H]);
                 //e_2[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
                 e_2[i] = Hasher::new().update(&P).to_scalar().unwrap();
 
-                let e_2_inv = e_2[i].invert();
-                r[i] = e_2_inv * k[i];
-                C[i] = G * r[i];
+                let e_2_inv = inv(&e_2[i]);
+                r[i] = modulus(&(&e_2_inv * &k[i]));
+                C[i] = G.mul_scalar(&r[i]);
 
-                s_1[i] = k_1 + (e_0 * (k[i] * e_2_inv));
-                s_2[i] = k_2 + (e_1[i] * (k[i] * e_2_inv));
+                s_1[i] = modulus(&(k_1 + &(&e_0 * &(&k[i] * &e_2_inv))));
+                s_2[i] = modulus(&(k_2 + &(&e_1[i] * &(&k[i] * &e_2_inv))));
             } else if v[i] == 1 {
                 s_1[i] = multiply_add(&e_0, &r[i], &k[i]);
             } else if v[i] == 2 {
-                s_1[i] = Scalar::random(&mut rng);
+                s_1[i] = random(&mut rng);
                 // Compute e_1^i = Hash(s_1^i G - e_0^i (C^i - 1 m^i H) )
-                let Ci_minus_miH = &C[i] - &mi_H;
-                let P = k_2_fold_scalar_mult(&[s_1[i], -&e_0], &[*G, Ci_minus_miH]);
+                let Ci_minus_miH = C[i].projective()
+                    .add(&mi_H.mul_scalar(&neg(&BigInt::one())).projective())
+                    .affine();
+
+                let P = k_2_fold_scalar_mult(&[&s_1[i], &neg(&e_0)], &[G, &Ci_minus_miH]);
+
                 //e_1[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
                 e_1[i] = Hasher::new().update(&P).to_scalar().unwrap();
                 s_2[i] = multiply_add(&e_1[i], &r[i], &k[i]);
             }
             // Set mi_H <-- 3*m_iH, so that mi_H is always 3^i * H in the loop
-            mi_H = mi_H + mi2_H;
+            mi_H = mi2_H.projective().add(&mi_H.projective()).affine();
         }
 
-        let mut blinding = Scalar::zero();
-        let mut commitment = RistrettoPoint::identity();
+        let mut blinding = BigInt::zero();
+        let mut commitment = Point{x: Fr::zero(), y: Fr::one()};
         for i in 0..n {
-            blinding += r[i];
+            blinding += r[i].clone();
             // XXX implement AddAssign for ExtendedPoint
-            commitment = commitment + C[i];
+            commitment = commitment.projective().add(&C[i].projective()).affine();
         }
 
         Some((
@@ -284,6 +301,7 @@ impl RangeProof {
         ))
     }
 
+    /*
     /// Construct a rangeproof for `value`, in constant time.
     ///
     /// This function is roughly three times slower (since `m = 3`) than the
@@ -319,13 +337,13 @@ impl RangeProof {
     /// to be identical.  The values in the eventual proofs will differ, since
     /// this constant time version makes additional calls to the `rng` which
     /// are thrown away in some conditions.
-    pub fn create<T: RngCore + CryptoRng>(
+    pub fn create<T: RandBigInt>(
         n: usize,
         value: u64,
-        G: &RistrettoPoint,
-        H: &RistrettoPoint,
+        G: &Point,
+        H: &Point,
         mut rng: &mut T,
-    ) -> Option<(RangeProof, RistrettoPoint, Scalar)> {
+    ) -> Option<(RangeProof, Point, BigInt)> {
         // Calling verify with n out of bounds is a programming error.
         if n > RANGEPROOF_MAX_N {
             panic!(
@@ -342,35 +360,36 @@ impl RangeProof {
             }
         }
 
-        let mut R = vec![RistrettoPoint::identity(); n];
-        let mut C = vec![RistrettoPoint::identity(); n];
-        let mut k = vec![Scalar::zero(); n];
-        let mut r = vec![Scalar::zero(); n];
-        let mut s_1 = vec![Scalar::zero(); n];
-        let mut s_2 = vec![Scalar::zero(); n];
-        let mut e_1 = vec![Scalar::zero(); n];
-        let mut e_2 = vec![Scalar::zero(); n];
+        let identity = Point{x: Fr::zero(), y: Fr::one()};
+        let mut R = vec![identity.clone(); n];
+        let mut C = vec![identity.clone(); n];
+        let mut k = vec![BigInt::zero(); n];
+        let mut r = vec![BigInt::zero(); n];
+        let mut s_1 = vec![BigInt::zero(); n];
+        let mut s_2 = vec![BigInt::zero(); n];
+        let mut e_1 = vec![BigInt::zero(); n];
+        let mut e_2 = vec![BigInt::zero(); n];
 
         let mut mi_H = *H;
-        let mut P: RistrettoPoint;
+        let mut P: Point;
 
         for i in 0..n {
             debug_assert!(v[i] == 0 || v[i] == 1 || v[i] == 2);
 
-            let mi2_H: RistrettoPoint = &mi_H + &mi_H;
+            let mi2_H = mi_H.projective().add(mi_H.projective()).affine();
 
-            k[i] = Scalar::random(&mut rng);
+            k[i] = crate::utils::random(&mut rng);
 
             //let choise: subtle::Choice = byte_is_nonzero(v[i]).into();
 
             // Commitment to i-th digit is r^i G + (v^1 * m^i H)
-            let maybe_ri: Scalar = Scalar::random(&mut rng);
+            let maybe_ri: BigInt = crate::utils::random(&mut rng);
             r[i].conditional_assign(&maybe_ri, byte_is_nonzero(v[i]).into());
 
-            let mut which_mi_H: RistrettoPoint = mi_H; // is a copy
+            let mut which_mi_H: Point = mi_H; // is a copy
             which_mi_H.conditional_assign(&mi2_H, bytes_equal_ct(v[i], 2u8).into());
 
-            let maybe_Ci: RistrettoPoint = (G * r[i]) + which_mi_H;
+            let maybe_Ci: Point = (G * r[i]) + which_mi_H;
             C[i].conditional_assign(&maybe_Ci, byte_is_nonzero(v[i]).into());
 
             P = &k[i] * G;
@@ -383,7 +402,7 @@ impl RangeProof {
             e_2[i].conditional_assign(&maybe_ei, bytes_equal_ct(v[i], 2u8).into());
 
             // Choose random scalar for s_2
-            let maybe_s2: Scalar = Scalar::random(&mut rng);
+            let maybe_s2: Scalar = crate::utils::random(&mut rng);
             s_2[i].conditional_assign(&maybe_s2, bytes_equal_ct(v[i], 1u8).into());
 
             // Compute e_2 = Hash(s_2^i G - e_1^i (C^i - 2m^i H) )
@@ -396,7 +415,7 @@ impl RangeProof {
             //         R^i = e_2^i * C^i
             R[i] = &k[i] * G;
 
-            let maybe_Ri: RistrettoPoint = e_2[i] * C[i];
+            let maybe_Ri: Point = e_2[i] * C[i];
             R[i].conditional_assign(&maybe_Ri, byte_is_nonzero(v[i]).into());
 
             // Multiply mi_H by m (a.k.a. m == 3)
@@ -418,8 +437,8 @@ impl RangeProof {
 
             let mi2_H = &mi_H + &mi_H;
 
-            let mut k_1 = Scalar::zero();
-            let maybe_k1: Scalar = Scalar::random(&mut rng);
+            let mut k_1 = BigInt::zero();
+            let maybe_k1: Scalar = crate::utils::random(&mut rng);
             k_1.conditional_assign(&maybe_k1, bytes_equal_ct(v[i], 0u8).into());
 
             P = (k_1 * G) + (e_0 * mi_H);
@@ -427,8 +446,8 @@ impl RangeProof {
             let maybe_e_1 = Hasher::new().update(&P).to_scalar().unwrap();
             e_1[i].conditional_assign(&maybe_e_1, bytes_equal_ct(v[i], 0u8).into());
 
-            let mut k_2 = Scalar::zero();
-            let maybe_k2: Scalar = Scalar::random(&mut rng);
+            let mut k_2 = BigInt::zero();
+            let maybe_k2: Scalar = crate::utils::random(&mut rng);
             k_2.conditional_assign(&maybe_k2, bytes_equal_ct(v[i], 0u8).into());
 
             P = &(&k_2 * G) + &(&e_1[i] * &mi2_H);
@@ -448,7 +467,7 @@ impl RangeProof {
             s_1[i].conditional_assign(&maybe_s_1, bytes_equal_ct(v[i], 0u8).into());
             maybe_s_1 = multiply_add(&e_0, &r[i], &k[i]);
             s_1[i].conditional_assign(&maybe_s_1, bytes_equal_ct(v[i], 1u8).into());
-            maybe_s_1 = Scalar::random(&mut rng);
+            maybe_s_1 = rng.gen_bigint(1024).to_bigint().unwrap();
             s_1[i].conditional_assign(&maybe_s_1, bytes_equal_ct(v[i], 2u8).into());
 
             // Compute e_1^i = Hash(s_1^i G - e_0^i (C^i - 1 m^i H) )
@@ -468,8 +487,8 @@ impl RangeProof {
             mi_H = mi_H + mi2_H;
         }
 
-        let mut blinding = Scalar::zero();
-        let mut commitment = RistrettoPoint::identity();
+        let mut blinding = BigInt::zero();
+        let mut commitment = Point{x: Fr::zero(), y: Fr::one()};
         for i in 0..n {
             blinding += &r[i];
             // XXX implement AddAssign for ExtendedPoint
@@ -487,6 +506,7 @@ impl RangeProof {
             blinding,
         ))
     }
+*/
 }
 
 fn base3_digits(mut x: u64) -> [u8; 41] {
@@ -502,10 +522,6 @@ fn base3_digits(mut x: u64) -> [u8; 41] {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use merlin::Transcript;
-    use rand::CryptoRng;
-    use rand::RngCore;
 
     #[test]
     fn base3_digits_vs_sage() {
@@ -574,12 +590,8 @@ mod tests {
 
     #[test]
     fn prove_and_verify_vartime() {
-        let mut transript = Transcript::new(b"TwistedElGamalTest");
-        let mut rng = transript
-            .build_rng()
-            .rekey_with_witness_bytes(b"x", b"witness")
-            .finalize(&mut rand::thread_rng());
-        let G = RistrettoPoint::random(&mut rng);
+        let mut rng = rand_core::OsRng;
+        let G = point_random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         let H = Hasher::new().update(&G).to_point().unwrap();
 
@@ -594,7 +606,10 @@ mod tests {
         assert!(proof.verify(2, &G, &H).is_none());
 
         let C = C_option.unwrap();
-        let C_hat = &(G * &blinding) + &(&H * &Scalar::from(value));
+        let C_hat = G.mul_scalar(&blinding)
+            .projective()
+            .add(&H.mul_scalar( &BigInt::from(value)).projective())
+            .affine();
 
         assert_eq!(C.compress(), C_hat.compress());
         assert_eq!(commitment.compress(), C_hat.compress());
@@ -602,20 +617,11 @@ mod tests {
 
     #[test]
     fn prove_and_verify_ct() {
-        let mut transript = Transcript::new(b"TwistedElGamalTest");
-        let mut rng = transript
-            .build_rng()
-            .rekey_with_witness_bytes(b"x", b"witness")
-            .finalize(&mut rand::thread_rng());
-        let G = &RistrettoPoint::random(&mut rng);
+        /*
+        let rng = rand::thread_rng();
+        let G = &point_random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         let H = Hasher::new().update(&G).to_point().unwrap();
-
-        let mut transript = Transcript::new(b"TwistedElGamalTest");
-        let mut rng = transript
-            .build_rng()
-            .rekey_with_witness_bytes(b"x", b"witness")
-            .finalize(&mut rand::thread_rng());
 
         let n = 16;
         let value = 13449261;
@@ -627,10 +633,11 @@ mod tests {
         assert!(proof.verify(2, &G, &H).is_none());
 
         let C = C_option.unwrap();
-        let C_hat = &(G * &blinding) + &(&H * &Scalar::from(value));
+        let C_hat = &(G * &blinding) + &(&H * &BigInt::from(value));
 
         assert_eq!(C.compress(), C_hat.compress());
         assert_eq!(commitment.compress(), C_hat.compress());
+        */
     }
 }
 
@@ -640,16 +647,10 @@ mod bench {
     use super::*;
     use test::Bencher;
 
-    use merlin::Transcript;
-
     #[bench]
     fn verify(b: &mut Bencher) {
-        let mut transript = Transcript::new(b"TwistedElGamalTest");
-        let mut rng = transript
-            .build_rng()
-            .rekey_with_witness_bytes(b"x", b"witness")
-            .finalize(&mut rand::thread_rng());
-        let G = &RistrettoPoint::random(&mut rng);
+        let mut rng = rand_core::OsRng;
+        let G = &point_random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         let H = Hasher::new().update(&G).to_point().unwrap();
 
@@ -662,12 +663,9 @@ mod bench {
 
     #[bench]
     fn prove_vartime(b: &mut Bencher) {
-        let mut transript = Transcript::new(b"TwistedElGamalTest");
-        let mut rng = transript
-            .build_rng()
-            .rekey_with_witness_bytes(b"x", b"witness")
-            .finalize(&mut rand::thread_rng());
-        let G = &RistrettoPoint::random(&mut rng);
+        let mut rng = rand_core::OsRng;
+
+        let G = &point_random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         let H = Hasher::new().update(&G).to_point().unwrap();
 
@@ -677,17 +675,15 @@ mod bench {
 
     #[bench]
     fn prove_ct(b: &mut Bencher) {
-        let mut transript = Transcript::new(b"TwistedElGamalTest");
-        let mut rng = transript
-            .build_rng()
-            .rekey_with_witness_bytes(b"x", b"witness")
-            .finalize(&mut rand::thread_rng());
-        let G = &RistrettoPoint::random(&mut rng);
+        /*
+        let rng = rand::thread_rng();
+        let G = &point_random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         let H = Hasher::new().update(&G).to_point().unwrap();
 
         let value = 1666;
         b.iter(|| RangeProof::create(RANGEPROOF_MAX_N, value, G, &H, &mut rng));
+        */
     }
 
     #[bench]
