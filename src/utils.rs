@@ -1,5 +1,5 @@
-use babyjubjub_rs::{Point, PrivateKey, decompress_point, utils as bu};
-use num_bigint::{RandBigInt, ToBigInt, BigInt, Sign};
+use babyjubjub_rs::{decompress_point, utils as bu, Point, PrivateKey};
+use num_bigint::{BigInt, RandBigInt, Sign, ToBigInt};
 use num_traits::One;
 
 use ff::*;
@@ -10,18 +10,20 @@ lazy_static! {
     pub static ref SUBORDER: BigInt = &BigInt::parse_bytes(
         b"21888242871839275222246405745257275088614511777268538073601725287587578984328",
         10,
-    ).unwrap() >> 3;
+    )
+    .unwrap()
+        >> 3;
 }
 
 pub fn random<R: RngCore + CryptoRng>(rng: &mut R) -> BigInt {
     let mut buf = [0u8; 32];
     rng.fill_bytes(&mut buf);
-	modulus(&BigInt::from_bytes_le(Sign::Plus, &buf[..]))
+    modulus(&BigInt::from_bytes_le(Sign::Plus, &buf[..]))
 }
 
 /// b % SUBORDER, SUBORDER is sub field modulus,
 pub fn modulus(b: &BigInt) -> BigInt {
-	bu::modulus(b, &SUBORDER)
+    bu::modulus(b, &SUBORDER)
 }
 
 /// -1/b % SUBORDER
@@ -45,17 +47,17 @@ pub fn point_random<R: RngCore + CryptoRng>(rng: &mut R) -> Point {
 }
 
 pub fn point_to_bigint(p: &Point) -> BigInt {
-	let compress_point = p.compress();
-	BigInt::from_bytes_le(Sign::Plus, &compress_point[..])
+    let compress_point = p.compress();
+    BigInt::from_bytes_le(Sign::Plus, &compress_point[..])
 }
 
 /// compressed = false, equals hash_to_curve
 pub fn bigint_to_point(n: &BigInt, compressed: bool) -> Point {
-	let (_, bn_bytes_raw) = n.to_bytes_le();
-	let mut bn_bytes: [u8; 32] = [0; 32];
-	bn_bytes.copy_from_slice(&bn_bytes_raw);
+    let (_, bn_bytes_raw) = n.to_bytes_le();
+    let mut bn_bytes: [u8; 32] = [0; 32];
+    bn_bytes.copy_from_slice(&bn_bytes_raw);
     if compressed {
-	    decompress_point(bn_bytes).unwrap()
+        decompress_point(bn_bytes).unwrap()
     } else {
         let sk = PrivateKey::import(bn_bytes.to_vec()).unwrap();
         sk.public()
@@ -67,7 +69,7 @@ pub fn bigint_to_fr(n: &BigInt) -> Fr {
 }
 
 pub fn fr_to_bigint(r: &Fr) -> BigInt {
-	BigInt::parse_bytes(to_hex(r).as_bytes(), 16).unwrap()
+    BigInt::parse_bytes(to_hex(r).as_bytes(), 16).unwrap()
 }
 
 #[test]

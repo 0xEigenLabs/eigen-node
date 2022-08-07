@@ -12,7 +12,9 @@ impl Account {
     pub fn new<R: RandBigInt>(rng: &mut R) -> Account {
         let sk_raw = rng.gen_biguint(1024).to_bigint().unwrap();
         let (_, sk_raw_bytes) = sk_raw.to_bytes_be();
-        Account{sk: PrivateKey::import(sk_raw_bytes[..32].to_vec()).unwrap()}
+        Account {
+            sk: PrivateKey::import(sk_raw_bytes[..32].to_vec()).unwrap(),
+        }
     }
 
     pub fn public_key(&self) -> Point {

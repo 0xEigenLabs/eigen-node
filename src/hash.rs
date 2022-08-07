@@ -2,12 +2,12 @@ use ff::*;
 use poseidon_rs::{Fr, Poseidon};
 
 use babyjubjub_rs::PrivateKey;
-use babyjubjub_rs::{Point, decompress_point};
+use babyjubjub_rs::{decompress_point, Point};
 
 use crate::errors::{EigenCTError, Result};
 
-use num_bigint::{BigInt, Sign};
 use crate::utils::*;
+use num_bigint::{BigInt, Sign};
 
 pub struct Hasher {
     h: Poseidon,
@@ -31,8 +31,8 @@ impl Hasher {
             .e
             .iter()
             .map(|point| {
-			 	let n = BigInt::from_bytes_le(Sign::Plus, point);
-				bigint_to_fr(&n)
+                let n = BigInt::from_bytes_le(Sign::Plus, point);
+                bigint_to_fr(&n)
             })
             .collect();
 
@@ -47,12 +47,7 @@ impl Hasher {
             let round: usize = 1 + point_to_fr.len() / round_size;
             digest = self
                 .h
-                .hash(
-                    point_to_fr
-                        .get(0..round_size)
-                        .unwrap()
-                        .to_vec(),
-                )
+                .hash(point_to_fr.get(0..round_size).unwrap().to_vec())
                 .map_err(|e| EigenCTError::PoseidonHashError(e))?;
             for i in 1..round {
                 let begin = i * (round_size - 1) + 1;
@@ -82,13 +77,13 @@ impl Hasher {
 
     pub fn to_point(&self) -> Result<Point> {
         let digest = self.multi_round_hash()?;
-		let n = fr_to_bigint(&digest);
-		Ok(bigint_to_point(&n, false))
+        let n = fr_to_bigint(&digest);
+        Ok(bigint_to_point(&n, false))
     }
 
     pub fn to_scalar(&mut self) -> Result<BigInt> {
         let h = self.multi_round_hash()?;
-		Ok(fr_to_bigint(&h))
+        Ok(fr_to_bigint(&h))
     }
 }
 

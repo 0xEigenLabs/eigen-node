@@ -3,15 +3,13 @@ use std::collections::HashMap;
 
 use babyjubjub_rs::Point;
 
-
-use std::sync::RwLock;
 use num_bigint::BigInt;
 use num_bigint::Sign;
 use num_bigint::ToBigInt;
+use std::sync::RwLock;
 
 lazy_static! {
-    static ref POINT_TO_INDEX_MAP: RwLock<HashMap<[u8; 32], u32>> =
-        RwLock::new(HashMap::new());
+    static ref POINT_TO_INDEX_MAP: RwLock<HashMap<[u8; 32], u32>> = RwLock::new(HashMap::new());
 }
 
 // Assume P = k * G, k \in [0, 2^31), solve k.
@@ -48,7 +46,10 @@ pub fn bsgs(P: &Point, G: &Point) -> Option<u32> {
                 .clone();
             return Some(b + step);
         } else {
-            S = S.projective().add(&G.mul_scalar(&-BigInt::from(m)).projective()).affine();
+            S = S
+                .projective()
+                .add(&G.mul_scalar(&-BigInt::from(m)).projective())
+                .affine();
             step += m;
         }
     }

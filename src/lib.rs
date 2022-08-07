@@ -14,5 +14,5 @@ extern crate lazy_static;
 
 pub mod hash;
 
-mod utils;
 mod account;
+mod utils;
