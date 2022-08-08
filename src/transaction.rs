@@ -1,10 +1,10 @@
-use babyjubjub_rs::Signature;
 use crate::twisted_elgamal::{TwistedElGamalCT, TwistedElGamalPP};
+use babyjubjub_rs::Signature;
 
 use crate::account::Account;
 
-use num_bigint::BigInt;
 use babyjubjub_rs::Point;
+use num_bigint::BigInt;
 
 pub struct Context {
     pp: TwistedElGamalPP,
@@ -19,7 +19,7 @@ impl Context {
 
         let (sk, pk) = pp.keygen(&mut rng);
 
-        Context{pp, sk, pk}
+        Context { pp, sk, pk }
     }
 }
 
@@ -38,7 +38,12 @@ impl Transaction {
         let C_S = ctx.pp.encrypt(value, &ctx.pk).unwrap();
         let C_R = ctx.pp.encrypt(value, &to).unwrap();
 
-        Transaction{sender, to, value: C_S, signature}
+        Transaction {
+            sender,
+            to,
+            value: C_S,
+            signature,
+        }
     }
 
     pub fn verify() -> bool {

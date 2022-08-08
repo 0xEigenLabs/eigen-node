@@ -1,8 +1,8 @@
-use generic_array::GenericArray;
 use crate::zkp::{
     sigma::Sigma,
-    transcript::{ProverTranscript, Transcript}
+    transcript::{ProverTranscript, Transcript},
 };
+use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
 /// Applies the Fiat-Shamir transform to a given [`Sigma`] protocol given a [`Transcript`].

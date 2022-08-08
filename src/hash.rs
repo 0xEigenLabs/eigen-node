@@ -85,17 +85,17 @@ impl Hasher {
 }
 
 impl Update for Hasher {
-	fn update(&mut self, data: impl AsRef<[u8]>) {
-		self.e.push(data.as_ref().to_vec());
-	}
+    fn update(&mut self, data: impl AsRef<[u8]>) {
+        self.e.push(data.as_ref().to_vec());
+    }
 
     fn chain(mut self, data: impl AsRef<[u8]>) -> Self
     where
         Self: Sized,
-	{
-		self.e.push(data.as_ref().to_vec());
-		self
-	}
+    {
+        self.e.push(data.as_ref().to_vec());
+        self
+    }
 }
 
 #[test]

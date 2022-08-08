@@ -4,9 +4,9 @@ use crate::errors::EigenCTError;
 use crate::errors::Result;
 use crate::hash::Hasher;
 use core::iter;
+use digest::Update;
 use num_bigint::RandBigInt;
 use rand_core::{CryptoRng, RngCore};
-use digest::Update;
 
 use super::baby_step_giant_step::bsgs;
 use num_bigint::BigInt;

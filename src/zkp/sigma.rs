@@ -1,8 +1,8 @@
 use core::fmt::Debug;
+use digest::Update;
 pub use generic_array::{self, typenum};
 use generic_array::{ArrayLength, GenericArray};
 use rand_core::{CryptoRng, RngCore};
-use digest::Update;
 
 pub trait Writable {
     fn write_to<W: core::fmt::Write>(&self, w: &mut W) -> core::fmt::Result;

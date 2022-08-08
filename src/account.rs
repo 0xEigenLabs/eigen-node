@@ -1,10 +1,10 @@
 #[allow(non_snake_case)]
 use super::*;
 
-use babyjubjub_rs::{utils, Point, PrivateKey, Signature, verify};
-use num_bigint::{BigInt, RandBigInt, Sign, ToBigInt};
-use crate::errors::{Result, EigenCTError};
+use crate::errors::{EigenCTError, Result};
 use crate::twisted_elgamal::TwistedElGamalCT;
+use babyjubjub_rs::{utils, verify, Point, PrivateKey, Signature};
+use num_bigint::{BigInt, RandBigInt, Sign, ToBigInt};
 
 pub struct Account {
     pub(crate) sk: PrivateKey,

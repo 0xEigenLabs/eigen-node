@@ -2,17 +2,17 @@
 // copy and modify from https://github.com/dalek-cryptography/dalek-rangeproofs/blob/develop/src/lib.rs
 // It replaces the hash function by ZK friendly hash, Poseidon Hash
 #![allow(non_snake_case)]
-use crate::hash::Hasher;
 use crate::fr::*;
+use crate::hash::Hasher;
 use core::iter;
 use num_bigint::RandBigInt;
 use num_bigint::ToBigInt;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConditionallySelectable;
 
+use digest::Update;
 use ff::*;
 use poseidon_rs::Fr;
-use digest::Update;
 
 use babyjubjub_rs::{new_key, utils as bu, Point, Q};
 use num_bigint::BigInt;

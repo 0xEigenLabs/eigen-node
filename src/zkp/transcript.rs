@@ -1,8 +1,8 @@
 use core::marker::PhantomData;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use typenum::{
-        marker_traits::NonZero, type_operators::IsLessOrEqual, PartialDiv, Unsigned, U32, U64,
-    };
+    marker_traits::NonZero, type_operators::IsLessOrEqual, PartialDiv, Unsigned, U32, U64,
+};
 
 use crate::zkp::sigma::{Sigma, Writable};
 use digest::{BlockInput, FixedOutput, Update};
