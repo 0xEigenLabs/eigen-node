@@ -16,6 +16,9 @@ pub enum EigenCTError {
     #[error("Peseidon hash error`{0}`")]
     PoseidonHashError(String),
 
+    #[error("sign error`{0}`")]
+    SignError(String),
+
     #[error("The size should be `{0}`")]
     BytesLengthError(usize),
 

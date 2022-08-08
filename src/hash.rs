@@ -6,8 +6,10 @@ use babyjubjub_rs::{decompress_point, Point};
 
 use crate::errors::{EigenCTError, Result};
 
-use crate::utils::*;
+use crate::fr::*;
 use num_bigint::{BigInt, Sign};
+
+use digest::Update;
 
 pub struct Hasher {
     h: Poseidon,
@@ -16,7 +18,7 @@ pub struct Hasher {
 
 ///
 /// The input of poseidon hash is Fr, we need convert the element in integer field Fr with
-/// order 21888242871839275222246405745257275088548364400416034343698204186575808495617.
+/// field size = 21888242871839275222246405745257275088548364400416034343698204186575808495617.
 ///
 impl Hasher {
     pub fn new() -> Self {
@@ -70,11 +72,6 @@ impl Hasher {
         Ok(digest)
     }
 
-    pub fn update(&mut self, point: &Point) -> &mut Self {
-        self.e.push(point.compress().to_vec());
-        self
-    }
-
     pub fn to_point(&self) -> Result<Point> {
         let digest = self.multi_round_hash()?;
         let n = fr_to_bigint(&digest);
@@ -84,6 +81,20 @@ impl Hasher {
     pub fn to_scalar(&mut self) -> Result<BigInt> {
         let h = self.multi_round_hash()?;
         Ok(fr_to_bigint(&h))
+    }
+}
+
+impl Update for Hasher {
+    fn update(&mut self, data: impl AsRef<[u8]>) {
+        self.e.push(data.as_ref().to_vec());
+    }
+
+    fn chain(mut self, data: impl AsRef<[u8]>) -> Self
+    where
+        Self: Sized,
+    {
+        self.e.push(data.as_ref().to_vec());
+        self
     }
 }
 

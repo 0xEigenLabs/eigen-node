@@ -2,14 +2,15 @@
 // copy and modify from https://github.com/dalek-cryptography/dalek-rangeproofs/blob/develop/src/lib.rs
 // It replaces the hash function by ZK friendly hash, Poseidon Hash
 #![allow(non_snake_case)]
+use crate::fr::*;
 use crate::hash::Hasher;
-use crate::utils::*;
 use core::iter;
 use num_bigint::RandBigInt;
 use num_bigint::ToBigInt;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConditionallySelectable;
 
+use digest::Update;
 use ff::*;
 use poseidon_rs::Fr;
 
@@ -110,7 +111,7 @@ impl RangeProof {
                 .affine();
             let P = k_2_fold_scalar_mult(&[&self.s_1[i], &neg(&self.e_0)], &[G, &Ci_minus_miH]);
             //let ei_1 = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
-            let ei_1 = Hasher::new().update(&P).to_scalar().unwrap();
+            let ei_1 = Hasher::new().chain(P.compress()).to_scalar().unwrap();
 
             let Ci_minus_2miH = self.C[i]
                 .projective()
@@ -118,10 +119,10 @@ impl RangeProof {
                 .affine();
             let P = k_2_fold_scalar_mult(&[&self.s_2[i], &neg(&ei_1)], &[G, &Ci_minus_2miH]);
             //let ei_2 = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
-            let ei_2 = Hasher::new().update(&P).to_scalar().unwrap();
+            let ei_2 = Hasher::new().chain(P.compress()).to_scalar().unwrap();
 
             let Ri = self.C[i].mul_scalar(&ei_2);
-            e_0_hash.update(&Ri);
+            e_0_hash.update(Ri.compress());
             C = C.projective().add(&self.C[i].projective()).affine();
 
             // Set mi_H <-- 3*m_iH, so that mi_H is always 3^i * H in the loop
@@ -208,7 +209,7 @@ impl RangeProof {
                 // Begin at index 1 in the ring, choosing random e_1
                 let P = G.mul_scalar(&k[i]);
                 //e_1[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
-                e_1[i] = Hasher::new().update(&P).to_scalar().unwrap();
+                e_1[i] = Hasher::new().chain(P.compress()).to_scalar().unwrap();
                 // Choose random scalar for s_2
                 s_2[i] = random(&mut rng);
                 // Compute e_2 = Hash(s_2^i G - e_1^i (C^i - 2m^i H) )
@@ -218,7 +219,7 @@ impl RangeProof {
                     .affine();
                 let P = k_2_fold_scalar_mult(&[&s_2[i], &neg(&e_1[i])], &[G, &Ci_minus_mi2H]);
                 //e_2[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
-                e_2[i] = Hasher::new().update(&P).to_scalar().unwrap();
+                e_2[i] = Hasher::new().chain(P.compress()).to_scalar().unwrap();
 
                 R[i] = C[i].mul_scalar(&e_2[i]);
             } else if v[i] == 2 {
@@ -232,7 +233,7 @@ impl RangeProof {
                 // Begin at index 2 in the ring, choosing random e_2
                 let P = G.mul_scalar(&k[i]);
                 //e_2[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
-                e_2[i] = Hasher::new().update(&P).to_scalar().unwrap();
+                e_2[i] = Hasher::new().chain(P.compress()).to_scalar().unwrap();
 
                 R[i] = C[i].mul_scalar(&e_2[i]);
             } else {
@@ -246,7 +247,7 @@ impl RangeProof {
         // Compute e_0 = Hash( R^0 || ... || R^{n-1} )
         let mut e_0_hash = Hasher::new();
         for i in 0..n {
-            e_0_hash.update(&R[i]);
+            e_0_hash.update(R[i].compress());
         }
         let e_0 = e_0_hash.to_scalar().unwrap();
 
@@ -258,12 +259,12 @@ impl RangeProof {
                 // P = k_1 * G + e_0 * mi_H
                 let P = k_2_fold_scalar_mult(&[&k_1, &e_0], &[G, &mi_H]);
                 //e_1[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
-                e_1[i] = Hasher::new().update(&P).to_scalar().unwrap();
+                e_1[i] = Hasher::new().chain(P.compress()).to_scalar().unwrap();
 
                 let k_2 = random(&mut rng);
                 let P = k_2_fold_scalar_mult(&[&k_2, &e_1[i]], &[G, &mi2_H]);
                 //e_2[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
-                e_2[i] = Hasher::new().update(&P).to_scalar().unwrap();
+                e_2[i] = Hasher::new().chain(P.compress()).to_scalar().unwrap();
 
                 let e_2_inv = inv(&e_2[i]);
                 r[i] = modulus(&(&e_2_inv * &k[i]));
@@ -284,7 +285,7 @@ impl RangeProof {
                 let P = k_2_fold_scalar_mult(&[&s_1[i], &neg(&e_0)], &[G, &Ci_minus_miH]);
 
                 //e_1[i] = Scalar::hash_from_bytes::<Sha512>(P.compress().as_bytes());
-                e_1[i] = Hasher::new().update(&P).to_scalar().unwrap();
+                e_1[i] = Hasher::new().chain(P.compress()).to_scalar().unwrap();
                 s_2[i] = multiply_add(&e_1[i], &r[i], &k[i]);
             }
             // Set mi_H <-- 3*m_iH, so that mi_H is always 3^i * H in the loop
@@ -606,7 +607,7 @@ mod tests {
         let mut rng = rand_core::OsRng;
         let G = point_random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
-        let H = Hasher::new().update(&G).to_point().unwrap();
+        let H = Hasher::new().chain(G.compress()).to_point().unwrap();
 
         let n = 16;
         let value = 13449261;
@@ -666,7 +667,8 @@ mod bench {
         let mut rng = rand_core::OsRng;
         let G = &point_random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
-        let H = Hasher::new().update(&G).to_point().unwrap();
+        //FIXME H should be irrelevant to G
+        let H = Hasher::new().chain(G.compress()).to_point().unwrap();
 
         let value = 1666;
         let (proof, _, _) =
@@ -681,7 +683,7 @@ mod bench {
 
         let G = &point_random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
-        let H = Hasher::new().update(&G).to_point().unwrap();
+        let H = Hasher::new().chain(G.compress()).to_point().unwrap();
 
         let value = 1666;
         b.iter(|| RangeProof::create_vartime(RANGEPROOF_MAX_N, value, G, &H, &mut rng));

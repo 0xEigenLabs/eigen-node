@@ -4,6 +4,7 @@ use crate::errors::EigenCTError;
 use crate::errors::Result;
 use crate::hash::Hasher;
 use core::iter;
+use digest::Update;
 use num_bigint::RandBigInt;
 use rand_core::{CryptoRng, RngCore};
 
@@ -13,7 +14,7 @@ use num_traits::{One, Zero};
 
 use crate::range_proof_bm::RangeProof;
 
-use crate::utils;
+use crate::fr;
 
 use babyjubjub_rs::{utils as bu, Point};
 
@@ -27,20 +28,20 @@ pub struct TwistedElGamalPP {
 impl TwistedElGamalPP {
     // setup
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> TwistedElGamalPP {
-        let G = utils::point_random(rng);
-        let H = Hasher::new().update(&G).to_point().unwrap();
+        let G = fr::point_random(rng);
+        let H = Hasher::new().chain(G.compress()).to_point().unwrap();
         TwistedElGamalPP { G, H }
     }
 
     pub fn keygen<R: RngCore + CryptoRng>(&self, rng: &mut R) -> (BigInt, Point) {
-        let sk = utils::random(rng);
+        let sk = fr::random(rng);
         let pk = self.G.mul_scalar(&sk);
         (sk, pk)
     }
 
-    pub fn encrypt(&mut self, value: u32, pk: &Point) -> Result<TwistedElGamalCT> {
+    pub fn encrypt(&self, value: u32, pk: &Point) -> Result<TwistedElGamalCT> {
         let mut rng = rand_core::OsRng;
-        let r = utils::random(&mut rng);
+        let r = fr::random(&mut rng);
 
         let cx = pk.mul_scalar(&r);
 
@@ -77,7 +78,7 @@ impl TwistedElGamalPP {
         let pk = self.G.mul_scalar(sk);
         // rG + mH = Y,  X = rxG
         // mH = Y - x^-1 * X
-        let sk_neg_inv = utils::neginv(sk);
+        let sk_neg_inv = fr::neginv(sk);
         let mH =
             ct.Y.projective()
                 .add(&ct.X.mul_scalar(&sk_neg_inv).projective())
