@@ -1,19 +1,29 @@
 use ff::*;
 use poseidon_rs::{Fr, Poseidon};
 
+use crate::errors::{EigenCTError, Result};
 use babyjubjub_rs::PrivateKey;
 use babyjubjub_rs::{decompress_point, Point};
 
-use crate::errors::{EigenCTError, Result};
-
 use crate::fr::*;
+use core::cmp::min;
 use num_bigint::{BigInt, Sign};
 
-use digest::Update;
+use digest::{BlockInput, FixedOutput, Update};
+use generic_array::GenericArray;
 
 pub struct Hasher {
     h: Poseidon,
     e: Vec<Vec<u8>>,
+}
+
+impl Clone for Hasher {
+    fn clone(&self) -> Self {
+        Hasher {
+            h: Poseidon::new(),
+            e: self.e.clone(),
+        }
+    }
 }
 
 ///
@@ -28,6 +38,7 @@ impl Hasher {
         }
     }
 
+    /// FIXME, secure prove
     fn multi_round_hash(&self) -> Result<Fr> {
         let mut point_to_fr: Vec<Fr> = self
             .e
@@ -78,7 +89,7 @@ impl Hasher {
         Ok(bigint_to_point(&n, false))
     }
 
-    pub fn to_scalar(&mut self) -> Result<BigInt> {
+    pub fn to_scalar(&self) -> Result<BigInt> {
         let h = self.multi_round_hash()?;
         Ok(fr_to_bigint(&h))
     }
@@ -95,6 +106,39 @@ impl Update for Hasher {
     {
         self.e.push(data.as_ref().to_vec());
         self
+    }
+}
+
+impl BlockInput for Hasher {
+    type BlockSize = digest::consts::U64;
+}
+
+impl FixedOutput for Hasher {
+    type OutputSize = digest::consts::U32;
+
+    fn finalize_into(self, out: &mut GenericArray<u8, Self::OutputSize>) {
+        let result = self.to_scalar().unwrap();
+        let mut bytes = [0u8; 32];
+        let (_, big_bytes) = result.to_bytes_le();
+        let len = min(bytes.len(), big_bytes.len());
+        bytes[..len].copy_from_slice(&big_bytes[..len]);
+        *out = *GenericArray::from_slice(&bytes[..]);
+    }
+
+    fn finalize_into_reset(&mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
+        let result = self.to_scalar().unwrap();
+        let mut bytes = [0u8; 32];
+        let (_, big_bytes) = result.to_bytes_le();
+        let len = min(bytes.len(), big_bytes.len());
+        bytes[..len].copy_from_slice(&big_bytes[..len]);
+        *out = *GenericArray::from_slice(&bytes[..]);
+        self.e.clear();
+    }
+}
+
+impl Default for Hasher {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -75,10 +75,10 @@ pub trait Sigma: Writable {
 macro_rules! impl_display {
     ($name:ident<$($tp:ident),+>) => {
         impl<$($tp),+> core::fmt::Display for $name<$($tp),+>
-            where $name<$($tp),+>: $crate::Sigma
+            where $name<$($tp),+>: $crate::zkp::sigma::Sigma
         {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                use $crate::Writable;
+                use $crate::zkp::sigma::Writable;
                 self.write_to(f)
             }
         }
