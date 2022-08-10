@@ -7,7 +7,7 @@ use crate::hash::Hasher;
 use core::iter;
 use num_bigint::RandBigInt;
 use num_bigint::ToBigInt;
-use rand_core::{CryptoRng, RngCore};
+use rand::{CryptoRng, RngCore};
 use subtle::ConditionallySelectable;
 
 use digest::Update;
@@ -604,8 +604,8 @@ mod tests {
 
     #[test]
     fn prove_and_verify_vartime() {
-        let mut rng = rand_core::OsRng;
-        let G = point_random(&mut rng);
+        let mut rng = rand::thread_rng();
+        let G = Point::random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         let H = Hasher::new().chain(G.compress()).to_point().unwrap();
 
@@ -634,7 +634,7 @@ mod tests {
     fn prove_and_verify_ct() {
         /*
         let rng = rand::thread_rng();
-        let G = &point_random(&mut rng);
+        let G = &Point::random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         let H = Hasher::new().update(&G).to_point().unwrap();
 
@@ -664,8 +664,8 @@ mod bench {
 
     #[bench]
     fn verify(b: &mut Bencher) {
-        let mut rng = rand_core::OsRng;
-        let G = &point_random(&mut rng);
+        let mut rng = rand::thread_rng();
+        let G = &Point::random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         //FIXME H should be irrelevant to G
         let H = Hasher::new().chain(G.compress()).to_point().unwrap();
@@ -679,9 +679,9 @@ mod bench {
 
     #[bench]
     fn prove_vartime(b: &mut Bencher) {
-        let mut rng = rand_core::OsRng;
+        let mut rng = rand::thread_rng();
 
-        let G = &point_random(&mut rng);
+        let G = &Point::random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         let H = Hasher::new().chain(G.compress()).to_point().unwrap();
 
@@ -693,7 +693,7 @@ mod bench {
     fn prove_ct(b: &mut Bencher) {
         /*
         let rng = rand::thread_rng();
-        let G = &point_random(&mut rng);
+        let G = &Point::random(&mut rng);
         //let H = RistrettoPoint::hash_from_bytes::<Sha512>(G.compress().as_bytes());
         let H = Hasher::new().update(&G).to_point().unwrap();
 

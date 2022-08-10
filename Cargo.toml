@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 rand_core = {version="0.6", default-features=false, features = ["getrandom"]}
+rand = { version = "0.8" }
 subtle = "2"
 serde = { version = "1.0", features = ["derive"] }
 lazy_static = "1.4"
@@ -15,19 +16,22 @@ poseidon-rs = "0.0.8"
 ff = {package="ff_ce" , version="0.11", features = ["derive"]}
 num-bigint = {version = "0.2.2", features = ["rand"]}
 num-traits = "0.2.8"
-babyjubjub-rs = { git = "https://github.com/arnaucube/babyjubjub-rs", version = "0.0.8" }
+babyjubjub-rs = { path = "github.com/ieigen/babyjubjub-rs", version = "0.0.8" }
 generic-array = "0.14"
 typenum = "1.15"
 digest = "0.9.0"
 
 curve25519-dalek = { version = "3", features = ["serde"], optional = true }
-rand = { version = "0.7", optional = true }
 merlin = { version = "2.0.0", optional = true}
 [dependencies.bulletproofs]
 git = "https://github.com/dalek-cryptography/bulletproofs"
 branch = "develop"
 features = ["yoloproofs"]
 optional = true
+
+[dev-dependencies]
+proptest = "1"
+rand_chacha = "0.3"
 
 [features]
 default = []

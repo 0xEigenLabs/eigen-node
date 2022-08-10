@@ -14,7 +14,7 @@ pub struct Context {
 
 impl Context {
     pub fn new() -> Context {
-        let mut rng = rand_core::OsRng;
+        let mut rng = rand::thread_rng();
         let pp = TwistedElGamalPP::new(&mut rng);
 
         let (sk, pk) = pp.keygen(&mut rng);

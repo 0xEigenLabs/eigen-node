@@ -9,8 +9,8 @@ use rand_core::{CryptoRng, RngCore};
 ///
 ///
 /// [BIP-340]: https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki
-/// [`Transcript`]: crate::Transcript
-/// [`Sigma`]: crate::Sigma
+/// [`Transcript`]: Transcript
+/// [`Sigma`]: Sigma
 #[derive(Clone, Debug)]
 pub struct FiatShamir<S, T> {
     /// The transcript

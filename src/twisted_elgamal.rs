@@ -28,7 +28,7 @@ pub struct TwistedElGamalPP {
 impl TwistedElGamalPP {
     // setup
     pub fn new<R: RngCore + CryptoRng>(rng: &mut R) -> TwistedElGamalPP {
-        let G = fr::point_random(rng);
+        let G = Point::random(rng);
         let H = Hasher::new().chain(G.compress()).to_point().unwrap();
         TwistedElGamalPP { G, H }
     }
@@ -40,7 +40,7 @@ impl TwistedElGamalPP {
     }
 
     pub fn encrypt(&self, value: u32, pk: &Point) -> Result<TwistedElGamalCT> {
-        let mut rng = rand_core::OsRng;
+        let mut rng = rand::thread_rng();
         let r = fr::random(&mut rng);
 
         let cx = pk.mul_scalar(&r);
@@ -107,8 +107,8 @@ pub struct TwistedElGamalCT {
 
 #[test]
 fn test_twisted_elgamal() {
-    let mut te = TwistedElGamalPP::new(&mut rand_core::OsRng);
-    let (sk, pk) = te.keygen(&mut rand_core::OsRng);
+    let mut te = TwistedElGamalPP::new(&mut rand::thread_rng());
+    let (sk, pk) = te.keygen(&mut rand::thread_rng());
     let value = 10u32;
     let ct = te.encrypt(value, &pk).unwrap();
 

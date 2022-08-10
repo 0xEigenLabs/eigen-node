@@ -55,7 +55,7 @@ pub trait ProverTranscript<S: Sigma> {
 /// The [`SeedableRng`] specified must have the same seed length as the hash's output length.
 /// `R` may be set to `()` but the it won't implement [`ProverTranscript`].
 ///
-/// [`SeedableRng`]: rand_core::SeedableRng
+/// [`SeedableRng`]: rand6::SeedableRng
 pub struct HashTranscript<H, R = ()> {
     hash: H,
     rng: PhantomData<R>,
@@ -82,9 +82,6 @@ impl<H: Update> core::fmt::Write for WriteHash<H> {
 
 /// Implements a transcript for any hash that outputs 32 bytes but with a block size of 64 bytes (e.g. SHA256).
 ///
-/// The implementation first [BIP-340] tags the SHA256 instance with the Sigma protocol's name.
-///
-/// [BIP-340]: https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki
 impl<H, S: Sigma, R: Clone> Transcript<S> for HashTranscript<H, R>
 where
     S::ChallengeLength: IsLessOrEqual<U32>,
