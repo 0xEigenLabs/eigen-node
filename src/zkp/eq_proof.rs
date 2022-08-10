@@ -154,35 +154,33 @@ mod test {
     }
 
 
-    /*
     mod babyjubjub {
         use super::*;
         use crate::zkp::babyjubjub::{
             self,
-            test::{ed25519_point, ed25519_scalar},
+            test::{babyjubjub_point, babyjubjub_scalar},
         };
         proptest! {
             #[test]
-            fn test_dleq_ed25519(
-                x in ed25519_scalar(),
-                H in ed25519_point(),
-                unrelated_point in ed25519_point(),
+            fn test_dleq_babyjubjub(
+                x in babyjubjub_scalar(),
+                H in babyjubjub_point(),
+                unrelated_point in babyjubjub_point(),
             ) {
-                use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT};
-                let G = ED25519_BASEPOINT_POINT;
-                let xG = x * G;
-                let xH = x * H;
+                let G = crate::fr::G();
+                let xG = G.mul_scalar(&x);
+                let xH = H.mul_scalar(&x);
                 let statement = ((xG), (H, xH));
 
                 run_dleq!(
-                    ed25519,
+                    babyjubjub,
                     challenge_length => U31,
                     statement => statement,
                     witness => x,
                     unrelated_point => unrelated_point
                 );
                 run_dleq!(
-                    ed25519,
+                    babyjubjub,
                     challenge_length => U20,
                     statement => statement,
                     witness => x,
@@ -191,5 +189,4 @@ mod test {
             }
         }
     }
-    */
 }

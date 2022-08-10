@@ -3,6 +3,7 @@
 use babyjubjub_rs::{decompress_point, utils as bu, Point, PrivateKey, B8, SUBORDER};
 use num_bigint::{BigInt, RandBigInt, Sign, ToBigInt};
 use num_traits::One;
+use core::cmp::min;
 
 use ff::*;
 use poseidon_rs::{Fr, Poseidon};
@@ -41,7 +42,8 @@ pub fn point_to_bigint(p: &Point) -> BigInt {
 pub fn bigint_to_point(n: &BigInt, compressed: bool) -> Point {
     let (_, bn_bytes_raw) = n.to_bytes_le();
     let mut bn_bytes: [u8; 32] = [0; 32];
-    bn_bytes.copy_from_slice(&bn_bytes_raw);
+    let len = min(bn_bytes.len(), bn_bytes_raw.len());
+    bn_bytes[..len].copy_from_slice(&bn_bytes_raw[..len]);
     if compressed {
         decompress_point(bn_bytes).unwrap()
     } else {
