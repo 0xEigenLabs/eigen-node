@@ -1,9 +1,9 @@
 //! This module provides an implementation of the Jubjub scalar field $\mathbb{F}_r$
 //! where `r = 2736030358979909402780800718157159386076813972158567259200215660948447373041`
 use babyjubjub_rs::{decompress_point, utils as bu, Point, PrivateKey, B8, SUBORDER};
+use core::cmp::min;
 use num_bigint::{BigInt, RandBigInt, Sign, ToBigInt};
 use num_traits::One;
-use core::cmp::min;
 
 use ff::*;
 use poseidon_rs::{Fr, Poseidon};
