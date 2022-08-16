@@ -16,3 +16,7 @@ mod account;
 mod fr;
 pub mod transaction;
 pub mod zkp;
+pub use zkp::eq_proof::Eq;
+pub use zkp::fiat_shamir::*;
+pub use zkp::sigma::*;
+pub use zkp::transcript::*;

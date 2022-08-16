@@ -1,6 +1,8 @@
-use rand6::{CrytoRng, RngCore};
-use crate::zkp::sigmal::Sigma;
+use crate::zkp::sigma::Sigma;
 use digest::Update;
+/// eq(A,B) proves two statements have the same witness (usually A is the same kind of proof as B).
+/// given w = (xG, xH), verify x
+use rand_core::{CryptoRng, RngCore};
 
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct Eq<A, B> {
@@ -10,7 +12,7 @@ pub struct Eq<A, B> {
 
 impl<A, B> Eq<A, B> {
     pub fn new(lhs: A, rhs: B) -> Self {
-        Self{lhs, rhs}
+        Self { lhs, rhs }
     }
 }
 
@@ -31,18 +33,19 @@ where
     type Response = A::Response;
     type ChallengeLength = A::ChallengeLength;
 
-    fn respond(&self,
+    fn respond(
+        &self,
         witness: &Self::Witness,
-        statement: &self::Statement,
-        announce_secret: &Self::AnnounceSecret,
+        statement: &Self::Statement,
+        announce_secret: Self::AnnounceSecret,
         announcement: &Self::Announcement,
-        chanllenge: &generic_array::GenericArray<u8, Self::ChallengeLength>,
-    )-> Self::Response {
+        challenge: &generic_array::GenericArray<u8, Self::ChallengeLength>,
+    ) -> Self::Response {
         self.lhs.respond(
             witness,
             &statement.0,
             announce_secret,
-            &announce.0,
+            &announcement.0,
             challenge,
         )
     }
@@ -117,12 +120,11 @@ crate::impl_display!(Eq<A,B>);
 #[cfg(test)]
 mod test {
     #![allow(unused_imports)]
-    use crate::{
-        typenum::{U20, U31, U32},
-        Eq, FiatShamir, HashTranscript,
-    };
+    use typenum::{U20, U31, U32};
+
+    use crate::hash::Hasher;
+    use crate::{Eq, FiatShamir, HashTranscript};
     use ::proptest::prelude::*;
-    use crate::zkp::hash::Hasher;
 
     #[allow(unused_macros)]
     macro_rules! run_dleq {
@@ -137,7 +139,8 @@ mod test {
             let witness = &$witness;
             type DLEQ = Eq<$mod::DLG<$len>, $mod::DL<$len>>;
 
-            let proof_system = FiatShamir::<DLEQ, HashTranscript<Hasher, Hasher>>::default();
+            let proof_system =
+                FiatShamir::<DLEQ, HashTranscript<Hasher, rand_chacha::ChaCha20Rng>>::default();
             let proof = proof_system.prove(witness, statement, Some(&mut rand::thread_rng()));
             assert!(proof_system.verify(statement, &proof));
 
@@ -152,7 +155,6 @@ mod test {
             }
         }};
     }
-
 
     mod babyjubjub {
         use super::*;
@@ -177,7 +179,7 @@ mod test {
                     challenge_length => U31,
                     statement => statement,
                     witness => x,
-                    unrelated_point => unrelated_point
+                    unrelated_point => unrelated_point.clone()
                 );
                 run_dleq!(
                     babyjubjub,
