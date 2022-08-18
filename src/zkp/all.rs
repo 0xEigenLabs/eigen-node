@@ -1,9 +1,9 @@
-use rand_core::{CryptoRng, RngCore};
 use crate::Sigma;
-use std::vec::Vec;
 use core::marker::PhantomData;
 use digest::Update;
 use generic_array::{typenum::Unsigned, GenericArray};
+use rand_core::{CryptoRng, RngCore};
+use std::vec::Vec;
 
 /// Combinator for proving all of N statements of the same type is true.
 #[derive(Default, Clone, Debug, PartialEq)]

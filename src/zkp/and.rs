@@ -124,12 +124,12 @@ mod test {
     mod babyjubjub {
         use crate::fr::G;
         use crate::hash::Hasher;
+        use crate::zkp::babyjubjub;
+        use crate::zkp::babyjubjub::test::babyjubjub_scalar;
         use crate::{And, FiatShamir, HashTranscript};
         use ::proptest::prelude::*;
-        use rand_chacha::ChaCha20Rng;
-        use crate::zkp::babyjubjub;
         use num_bigint::BigInt;
-        use crate::zkp::babyjubjub::test::babyjubjub_scalar;
+        use rand_chacha::ChaCha20Rng;
 
         proptest! {
             #[test]

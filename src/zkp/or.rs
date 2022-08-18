@@ -188,14 +188,17 @@ mod test {
     mod babyjubjub {
         use crate::fr::G;
         use crate::hash::Hasher;
+        use crate::zkp::babyjubjub::{
+            self,
+            test::{babyjubjub_point, babyjubjub_scalar},
+        };
+        use crate::zkp::or::*;
         use crate::HashTranscript;
         use ::proptest::prelude::*;
         use babyjubjub_rs::Point;
         use generic_array::typenum::U31;
-        use rand_chacha::ChaCha20Rng;
-        use crate::zkp::babyjubjub::{self, test::{babyjubjub_scalar, babyjubjub_point}};
         use num_bigint::BigInt;
-        use crate::zkp::or::*;
+        use rand_chacha::ChaCha20Rng;
 
         proptest! {
             #[test]

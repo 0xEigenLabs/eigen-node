@@ -2,11 +2,11 @@ use crate::twisted_elgamal::{TwistedElGamalCT, TwistedElGamalPP};
 use babyjubjub_rs::Signature;
 
 use crate::account::Account;
-use babyjubjub_rs::Point;
-use num_bigint::BigInt;
-use crate::Sigma;
 use crate::zkp::babyjubjub::*;
+use crate::Sigma;
+use babyjubjub_rs::Point;
 use generic_array::typenum::U31;
+use num_bigint::BigInt;
 
 pub struct Context {
     pp: TwistedElGamalPP,
@@ -43,9 +43,7 @@ impl Transaction {
         // L_equal := { C_L = (pk_1^r, g^r * h^v), C_R = (pk_2^r, g^r * h^v) }
         //      imply:
 
-
         // L_range := { C_L = Dec(sk_1, C_old - C_L) \in V}
-
 
         Transaction {
             sender,
