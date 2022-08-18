@@ -1,3 +1,4 @@
+#[allow(non_snake_case)]
 use crate::fr;
 use crate::zkp::sigma::{Sigma, Writable};
 use babyjubjub_rs::{utils as bu, Point};
@@ -70,13 +71,13 @@ where
         let (G, X) = statement;
         let challenge = normalize_challenge(challenge);
         let neg_challenge = fr::neg(&challenge);
+        // response * G - challenge * X
         Some(
             G.mul_scalar(response)
                 .projective()
                 .add(&X.mul_scalar(&neg_challenge).projective())
                 .affine(),
         )
-        //Some(response * G - challenge * X)
     }
 
     fn hash_statement<H: Update>(&self, hash: &mut H, statement: &Self::Statement) {
@@ -89,7 +90,6 @@ where
     }
 
     fn hash_witness<H: Update>(&self, hash: &mut H, witness: &Self::Witness) {
-        let mut bytes = [0u8; 32];
         let (_, big_bytes) = witness.to_bytes_le();
         hash.update(big_bytes)
     }
@@ -123,7 +123,7 @@ where
         challenge: &GenericArray<u8, Self::ChallengeLength>,
     ) -> Self::Response {
         let challenge = normalize_challenge(challenge);
-        &announce_secret + &challenge * witness
+        announce_secret + &challenge * witness
     }
 
     fn announce(
@@ -163,13 +163,6 @@ where
                 .add(&fr::G().mul_scalar(response).projective())
                 .affine(),
         )
-        /*
-        Some(EdwardsPoint::vartime_double_scalar_mul_basepoint(
-            &-challenge,
-            X,
-            response,
-        ))
-            */
     }
 
     fn hash_statement<H: Update>(&self, hash: &mut H, statement: &Self::Statement) {

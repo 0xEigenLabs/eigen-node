@@ -1,7 +1,7 @@
-use crate::zkp::sigma::Sigma;
-use digest::Update;
 /// eq(A,B) proves two statements have the same witness (usually A is the same kind of proof as B).
 /// given w = (xG, xH), verify x
+use crate::Sigma;
+use digest::Update;
 use rand_core::{CryptoRng, RngCore};
 
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -120,7 +120,7 @@ crate::impl_display!(Eq<A,B>);
 #[cfg(test)]
 mod test {
     #![allow(unused_imports)]
-    use typenum::{U20, U31, U32};
+    use typenum::{U20, U31};
 
     use crate::hash::Hasher;
     use crate::{Eq, FiatShamir, HashTranscript};
@@ -129,11 +129,11 @@ mod test {
     #[allow(unused_macros)]
     macro_rules! run_dleq {
         (
-            $mod:ident,challenge_length =>
-            $len:ident,statement =>
-            $statement:expr,witness =>
-            $witness:expr,unrelated_point =>
-            $unrelated_point:expr
+            $mod:ident,
+            challenge_length => $len:ident,
+            statement => $statement:expr,
+            witness => $witness:expr,
+            unrelated_point => $unrelated_point:expr
         ) => {{
             let statement = &$statement;
             let witness = &$witness;
