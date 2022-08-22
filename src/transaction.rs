@@ -1,12 +1,14 @@
-use crate::twisted_elgamal::{TwistedElGamalCT, TwistedElGamalPP};
-use babyjubjub_rs::Signature;
-
 use crate::account::Account;
-use crate::zkp::babyjubjub::*;
-use crate::Sigma;
+use crate::fr;
+use crate::hash::Hasher;
+use crate::twisted_elgamal::{TwistedElGamalCT, TwistedElGamalPP};
 use babyjubjub_rs::Point;
+use babyjubjub_rs::Signature;
+use digest::Update;
 use generic_array::typenum::U31;
 use num_bigint::BigInt;
+use num_bigint::ToBigInt;
+use rand_chacha::ChaCha20Rng;
 
 pub struct Context {
     pp: TwistedElGamalPP,
@@ -28,28 +30,32 @@ impl Context {
 pub struct Transaction {
     sender: Account,
     to: Point,
-    value: TwistedElGamalCT,
     signature: Signature,
+    proof: Vec<u8>,
 }
 
 impl Transaction {
     pub fn new(ctx: Context, sender: Account, value: u32, to: Point) -> Transaction {
-        let signature = sender.sign(BigInt::from(value as i64)).unwrap();
+        // sign the message
+        let msg = Hasher::new()
+            .chain(sender.public_key().compress())
+            .chain(to.compress())
+            .chain(fr::bigint_to_point(&BigInt::from(value as u64), false).compress())
+            .to_scalar()
+            .unwrap();
+        let signature = sender.sign(msg).unwrap();
 
-        let C_S = ctx.pp.encrypt(value, &ctx.pk).unwrap();
-        let C_R = ctx.pp.encrypt(value, &to).unwrap();
-        //type AndDL = AndDL<DLG<U31>, DLG<U31>>;
-
-        // L_equal := { C_L = (pk_1^r, g^r * h^v), C_R = (pk_2^r, g^r * h^v) }
-        //      imply:
-
-        // L_range := { C_L = Dec(sk_1, C_old - C_L) \in V}
+        // L_equal := { C_S = (pk_1^r, g^r * h^v), C_R = (pk_2^r, g^r * h^v) }
+        //  witness: (r, v)
+        //  statement:  DL(pk_1, pk_1^r) & DL(pk_2, pk_2^r) & DL((r, v), g^r * h^v)
+        let (r_s, C_S) = ctx.pp.encrypt(value, &ctx.pk).unwrap();
+        let (r_r, C_R) = ctx.pp.encrypt(value, &to).unwrap();
 
         Transaction {
             sender,
             to,
-            value: C_S,
             signature,
+            proof: vec![],
         }
     }
 

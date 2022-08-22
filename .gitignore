@@ -1,2 +1,8 @@
 target
 Cargo.lock
+circuits/setup*.key
+node_modules
+yarn.lock
+input.json
+proof.json
+public.json

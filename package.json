@@ -1,0 +1,28 @@
+{
+  "name": "zktx",
+  "version": "1.0.0",
+  "description": "Eigen Confidential Transaction Layer",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xEigenLabs/zkTX.git"
+  },
+  "keywords": [
+    "zkp",
+    "privacy",
+    "blockchain"
+  ],
+  "author": "EigenLabs",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/0xEigenLabs/zkTX/issues"
+  },
+  "homepage": "https://github.com/0xEigenLabs/zkTX#readme",
+  "dependencies" : {
+    "circomlibjs": "^0.1.1",
+    "circomlib": "^2.0.2"
+  }
+}
