@@ -1,10 +1,14 @@
 {
   "name": "zktx",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Eigen Confidential Transaction Layer",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "yarn mocha --timeout 60000"
+  },
+  "devDependencies": {
+    "mocha": "^3.2.0",
+    "chai": "^3.5.0"
   },
   "repository": {
     "type": "git",
@@ -20,9 +24,15 @@
   "bugs": {
     "url": "https://github.com/0xEigenLabs/zkTX/issues"
   },
+  "files": [
+      "client/*.js",
+      "index.js",
+      "circuits/setup_2^15.key"
+  ],
   "homepage": "https://github.com/0xEigenLabs/zkTX#readme",
   "dependencies" : {
     "circomlibjs": "^0.1.1",
-    "circomlib": "^2.0.2"
+    "circomlib": "^2.0.2",
+    "snarkjs": "0.4.12"
   }
 }

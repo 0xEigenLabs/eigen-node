@@ -9,29 +9,52 @@ use generic_array::typenum::U31;
 use num_bigint::BigInt;
 use num_bigint::ToBigInt;
 use rand_chacha::ChaCha20Rng;
+use zklib::api::verify;
+
+pub struct VerifyContext {
+    vk_file: String,
+    transcript: String,
+    proof_bin: String,
+}
+
+impl VerifyContext {
+    pub fn new(vk_file: &String, transcript: &String, proof_bin: &String) -> Self {
+        VerifyContext {
+            vk_file,
+            transcript,
+            proof_bin,
+        }
+    }
+}
 
 pub struct Context {
     pp: TwistedElGamalPP,
     sk: BigInt,
     pk: Point,
+    verifyContext: VerifyContext,
 }
 
 impl Context {
-    pub fn new() -> Context {
+    pub fn new(vk: &String, transcript: &String, proof_bin: &String) -> Context {
         let mut rng = rand::thread_rng();
         let pp = TwistedElGamalPP::new(&mut rng);
 
         let (sk, pk) = pp.keygen(&mut rng);
 
-        Context { pp, sk, pk }
+        Context {
+            pp,
+            sk,
+            pk,
+            verifyContext: VerifyContext::new(vk_file, transcript, proof_bin),
+        }
     }
 }
 
 pub struct Transaction {
-    sender: Account,
-    to: Point,
-    signature: Signature,
-    proof: Vec<u8>,
+    pub sender: Account,
+    pub to: Point,
+    pub signature: Signature,
+    pub proof: Option(Vec<u8>),
 }
 
 impl Transaction {

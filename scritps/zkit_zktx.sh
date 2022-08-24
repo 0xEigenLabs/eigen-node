@@ -7,16 +7,21 @@ ZKIT=`which zkit`
 WORKSPACE=/tmp/zkit_zktx
 rm -rf $WORKSPACE && mkdir -p $WORKSPACE
 
-POWER=20
-SRS=${CIRCUIT_DIR}/setup_2^${POWER}.key
-if [ ! -f $SRS ]; then
-   curl https://universal-setup.ams3.digitaloceanspaces.com/setup_2^${POWER}.key -o $SRS
-fi
+POWER=15
+SRS=${CIRCUIT_DIR}/zkit_setup_2^${POWER}.key
+
+#if [ ! -f $SRS ]; then
+#   curl https://universal-setup.ams3.digitaloceanspaces.com/setup_2^${POWER}.key -o $SRS
+#fi
+
 
 cd $CIRCUIT_DIR
 
 echo "1. Compile the circuit"
 ${ZKIT} compile -i $CIRCUIT.circom --O2=full -o $WORKSPACE
+
+#snarkjs plonk setup ${WORKSPACE}/${CIRCUIT}.r1cs ${CIRCUIT_DIR}/powersOfTau28_hez_final_15.ptau ${SRS}
+
 node ${CIRCUIT_DIR}/../scritps/generate_zktx.js ${WORKSPACE}/zktx_js/
 
 echo "2. Generate witness"

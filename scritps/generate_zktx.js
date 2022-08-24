@@ -74,13 +74,15 @@ const main = async (outputPath) => {
     C_S_NEW: [
       [F.toString(c_l_new[0]), F.toString(c_l_new[1])],
       [F.toString(c_r_new[0]), F.toString(c_r_new[1])]
-    ],
+    ]
+    /*,
     Ax: F.toString(pubKey[0]),
     Ay: F.toString(pubKey[1]),
     R8x: F.toString(signature.R8[0]),
     R8y: F.toString(signature.R8[1]),
     S: signature.S.toString(),
     M: F.toString(msg)
+    */
   }
 
   fs.writeFileSync(

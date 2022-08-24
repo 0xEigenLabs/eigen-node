@@ -58,12 +58,6 @@ template TEEncryption() {
     for  (var i=0; i<253; i++) {
         n2b.out[i] ==> escalarMul_pk.e[i];
     }
-    log(escalarMul_pk.out[0]);
-    log(escalarMul_pk.out[1]);
-    log(C_S[0][0]);
-    log(C_S[0][1]);
-    log(C_S[1][0]);
-    log(C_S[1][1]);
 
     // g^r
     n2b_g = Num2Bits(253);
@@ -92,18 +86,12 @@ template TEEncryption() {
     babyAdd.x2 <== escalarMul_vH.out[0];
     babyAdd.y2 <== escalarMul_vH.out[1];
 
-    log(babyAdd.xout);
-    log(babyAdd.yout);
-
     // check if pk^r' * pk^r => pk^r
     babyAddCL = BabyAdd();
     babyAddCL.x1 <== C_S[0][0];
     babyAddCL.y1 <== C_S[0][1];
     babyAddCL.x2 <== escalarMul_pk.out[0];
     babyAddCL.y2 <== escalarMul_pk.out[1];
-
-    log(babyAddCL.xout);
-    log(C_S_NEW[0][0]);
 
     babyAddCL.xout === C_S_NEW[0][0];
     babyAddCL.yout === C_S_NEW[0][1];
@@ -119,6 +107,7 @@ template TEEncryption() {
     babyAddCR.yout === C_S_NEW[1][1];
 }
 
+/*
 template EdDSAVerifier() {
     signal input Ax; //public
     signal input Ay; //public
@@ -136,6 +125,7 @@ template EdDSAVerifier() {
     verifier.S <== S;
     verifier.M <== M;
 }
+*/
 
 
 template ZKTX() {
@@ -150,14 +140,17 @@ template ZKTX() {
     signal input C_S[2][2];
     signal input C_S_NEW[2][2];
 
+/*
     signal input Ax;
     signal input Ay;
     signal input S;
     signal input R8x;
     signal input R8y;
     signal input M;
+*/
 
     // check signature
+    /*
     component sigVerifier = EdDSAVerifier();
     sigVerifier.Ax <== Ax;
     sigVerifier.Ay <== Ay;
@@ -166,6 +159,7 @@ template ZKTX() {
     sigVerifier.R8x <== R8x;
     sigVerifier.R8y <== R8y;
     sigVerifier.M <== M;
+    */
 
     // check amount's range
     component rp = RangeProof(252);
@@ -191,7 +185,6 @@ template ZKTX() {
     }
 }
 
-
 component main {
     public [
         senderPubkey,
@@ -199,9 +192,6 @@ component main {
         Max,
         H,
         C_S,
-        C_S_NEW,
-        Ax,
-        Ay,
-        M
+        C_S_NEW
     ]
 } = ZKTX();
