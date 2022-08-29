@@ -5,8 +5,10 @@ const buildBabyjub = require("circomlibjs").buildBabyjub;
 const TwistedElGamal = require("./twisted_elgamal.js");
 const fs = require("fs");
 const crypto = require("crypto");
+const {prover} = require("@ieigen/plonkjs-node");
 var path = require('path');
 
+/*
 function buff2hex(buff) {
     function i2hex(i) {
       return ('0' + i.toString(16)).slice(-2);
@@ -19,6 +21,7 @@ const fromHexString = hexString =>
 
 const toHexString = bytes =>
   bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+*/
 
 module.exports = class ZKTX {
   constructor(circuit_path) {
@@ -56,8 +59,8 @@ module.exports = class ZKTX {
     // make signature
     const pSenderPubKey = this.babyJub.packPoint(senderPubKey);
     const pReceiverPubKey = this.babyJub.packPoint(receiverPubKey);
-    const msg = this.poseidon([pSenderPubKey, pReceiverPubKey, nonce, tokenType]);
-    const signature = this.eddsa.signPoseidon(senderPubKey, msg);
+    const msg = this.poseidon([pSenderPubKey, pReceiverPubKey, amount, nonce, tokenType]);
+    const signature = this.eddsa.signPoseidon(senderPrvKey, msg);
     // make proof
     const proof = await this.createTxProof(senderPubKey, receiverPubKey, H, amount, r, c_l, c_r, c_l_old, c_r_old, msg, signature);
 
@@ -69,15 +72,37 @@ module.exports = class ZKTX {
     }
   }
 
+  async verifyTX(amount, senderPubKey, receiverPubKey, nonce, tokenType, signature, proof) {
+    const pSenderPubKey = this.babyJub.packPoint(senderPubKey);
+    const pReceiverPubKey = this.babyJub.packPoint(receiverPubKey);
+    const msg = this.poseidon([pSenderPubKey, pReceiverPubKey, amount, nonce, tokenType]);
+    const verified = this.eddsa.verifyPoseidon(msg, signature, senderPubKey);
+    if (verified === false) {
+      console.log("invalid signature");
+      return false;
+    }
+    console.log(proof);
+    let verify_ok = prover.verify(
+      Array.from(proof.vk_bin),
+      Array.from(proof.proof_bin),
+      "keccak"
+    )
+    if (verify_ok === false) {
+      console.log("invalid tx proof");
+      return false;
+    }
+    return true;
+  }
+
   async createTxProof(senderPubKey, receiverPubKey, H, amount, r, c_l, c_r, c_l_old, c_r_old, msg, signature) {
     const F = this.babyJub.F;
     // TODO: fetch circuit, srs and wasm from eigen server
-    let wasm = path.join(this.circuit_path, "zktx.wasm");
-    let srs_monomial_form = path.join(__dirname, "../circuits/setup_2^15.key");
-    let circuit_file = path.join(__dirname, "../circuits/zktx.r1cs");
-    const wc = require("./witness_calculator");
+    let wasm = path.join(this.circuit_path, "zktx_js/zktx.wasm");
+    let srs_monomial_form = path.join(this.circuit_path, "setup_2^15.key");
+    let circuit_file = path.join(this.circuit_path, "zktx.r1cs");
+    const wc = require(path.join(__dirname, "witness_calculator"));
 
-    /*
+    /* for web
     var reader = new FileReader();     // FileReader object
     reader.readAsArrayBuffer(wasm);
     var buffer = new Uint8Array(reader.result, 0, reader.result.byteLength);eader.readAsArrayBuffer(wasm);    // perform reading
@@ -128,7 +153,6 @@ module.exports = class ZKTX {
     );
     console.log("begin to prove");
     let circuit_file_content = fs.readFileSync(circuit_file);
-    let wtns = path.join(basePath, "witness.wtns");
     let srs_monomial_form_content = fs.readFileSync(srs_monomial_form);
     let proof = prover.prove(
       circuit_file_content.toJSON().data,
@@ -136,10 +160,18 @@ module.exports = class ZKTX {
       srs_monomial_form_content.toJSON().data,
       "keccak"
     );
+
+    // make vk
+    let vk = prover.export_verification_key(
+      srs_monomial_form_content.toJSON().data,
+      circuit_file_content.toJSON().data,
+    );
+
     return {
       proof_bin: proof.proof_bin,
       proof_json: proof.proof_json,
-      public_json: proof.public_json
+      public_json: proof.public_json,
+      vk_bin: vk.vk_bin
     }
   }
 }

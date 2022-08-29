@@ -8,19 +8,18 @@ WORKSPACE=/tmp/zkit_zktx
 rm -rf $WORKSPACE && mkdir -p $WORKSPACE
 
 POWER=15
-SRS=${CIRCUIT_DIR}/zkit_setup_2^${POWER}.key
+SRS=${WORKSPACE}/setup_2^${POWER}.key
 
-#if [ ! -f $SRS ]; then
+if [ ! -f $SRS ]; then
 #   curl https://universal-setup.ams3.digitaloceanspaces.com/setup_2^${POWER}.key -o $SRS
-#fi
+    ${ZKIT} setup -p 15 -s ${SRS}
+fi
 
 
 cd $CIRCUIT_DIR
 
 echo "1. Compile the circuit"
 ${ZKIT} compile -i $CIRCUIT.circom --O2=full -o $WORKSPACE
-
-#snarkjs plonk setup ${WORKSPACE}/${CIRCUIT}.r1cs ${CIRCUIT_DIR}/powersOfTau28_hez_final_15.ptau ${SRS}
 
 node ${CIRCUIT_DIR}/../scritps/generate_zktx.js ${WORKSPACE}/zktx_js/
 

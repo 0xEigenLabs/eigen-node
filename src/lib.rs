@@ -12,4 +12,3 @@ pub mod hash;
 
 mod account;
 mod fr;
-pub mod transaction;

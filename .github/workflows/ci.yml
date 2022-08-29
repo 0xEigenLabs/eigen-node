@@ -8,7 +8,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build_and_test:
+  setup:
     name: Rust project - latest
     runs-on: ubuntu-latest
     strategy:
@@ -22,6 +22,10 @@ jobs:
       - run: cargo test --release --features bench --verbose
       - run: yarn
       - run: wget https://github.com/ieigen/EigenZKit/releases/download/v0.0.1/zkit-x86_64-unknown-linux-gnu.tar.gz && tar -zxvf zkit-x86_64-unknown-linux-gnu.tar.gz -C /usr/local/bin && bash -x scritps/zkit_zktx.sh
+      - uses: actions/upload-artifact@master
+        with:
+          name: zktx-workspace
+          path: /tmp/zkit_zktx
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
@@ -37,3 +41,37 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+
+  unittest:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@master
+        with:
+          name: zktx-workspace
+          path: /tmp/zkit_zktx
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Cache Node Dependencies
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{runner.OS}}-npm-caches-${{ hashFiles('package-lock.json') }}
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+      - name: Start test
+        run: yarn test

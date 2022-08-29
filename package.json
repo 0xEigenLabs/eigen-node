@@ -4,11 +4,11 @@
   "description": "Eigen Confidential Transaction Layer",
   "main": "index.js",
   "scripts": {
-    "test": "yarn mocha --timeout 60000"
+    "test": "yarn mocha --timeout 100000"
   },
   "devDependencies": {
-    "mocha": "^3.2.0",
-    "chai": "^3.5.0"
+    "chai": "^3.5.0",
+    "mocha": "^3.2.0"
   },
   "repository": {
     "type": "git",
@@ -25,14 +25,14 @@
     "url": "https://github.com/0xEigenLabs/zkTX/issues"
   },
   "files": [
-      "client/*.js",
-      "index.js",
-      "circuits/setup_2^15.key"
+    "client/*.js",
+    "index.js",
+    "circuits/setup_2^15.key"
   ],
   "homepage": "https://github.com/0xEigenLabs/zkTX#readme",
-  "dependencies" : {
-    "circomlibjs": "^0.1.1",
+  "dependencies": {
     "circomlib": "^2.0.2",
-    "snarkjs": "0.4.12"
+    "circomlibjs": "^0.1.1",
+    "@ieigen/plonkjs-node": "0.0.1"
   }
 }

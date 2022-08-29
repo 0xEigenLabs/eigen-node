@@ -1,10 +1,9 @@
 const client = require("../");
-var assert = require('assert');
-var expect = require('chai');
-
+const { expect } = require("chai");
 
 const main = async() => {
-  let circult_path = "/tmp/zkit_zktx/zktx_js/"
+  // run scripts/zkit_zktx.sh to generates the circuits
+  let circult_path = "/tmp/zkit_zktx/"
   let zktx = new client.ZKTX(circult_path);
   await zktx.initialize()
 
@@ -21,10 +20,14 @@ const main = async() => {
   console.log(ct)
 
   let nonce = 1;
-  let tokentype = 1;
-  let tx = await zktx.createTX(amount, senderPvk, nonce, tokentype, receiverPubk, ct.c_l, ct.c_r)
+  let tokenType = 1;
+  let tx = await zktx.createTX(amount, senderPvk, nonce, tokenType, receiverPubk, ct.c_l, ct.c_r)
 
   console.log(tx);
+
+  // verify tx
+  let verified = await zktx.verifyTX(amount, senderPubk, receiverPubk, nonce, tokenType, tx.signature, tx.proof)
+  expect(verified).eq(true)
 }
 
 
