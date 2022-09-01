@@ -8,8 +8,6 @@ edition = "2021"
 [dependencies]
 rand_core = {version="0.6", default-features=false, features = ["getrandom"]}
 rand = { version = "0.8" }
-subtle = "2"
-serde = { version = "1.0", features = ["derive"] }
 lazy_static = "1.4"
 thiserror="1.0"
 poseidon-rs = "0.0.8"
@@ -23,14 +21,7 @@ digest = "0.9.0"
 rand_chacha = "0.3"
 
 zklib = { git = "https://github.com/0xEigenLabs/eigen-zkit" }
-
-curve25519-dalek = { version = "3", features = ["serde"], optional = true }
-merlin = { version = "2.0.0", optional = true}
-[dependencies.bulletproofs]
-git = "https://github.com/dalek-cryptography/bulletproofs"
-branch = "develop"
-features = ["yoloproofs"]
-optional = true
+web3 = "0.17.0"
 
 [dev-dependencies]
 proptest = "1"
